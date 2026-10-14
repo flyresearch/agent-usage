@@ -1,0 +1,18 @@
+[package]
+name = "agent-usage"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "MIT"
+repository = "https://github.com/flyresearch/agent-usage"
+description = "Experimental local Codex and Claude Code usage collector"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+sha2 = "0.10"
+walkdir = "2"
+
+tempfile = "3"
+same-file = "1"

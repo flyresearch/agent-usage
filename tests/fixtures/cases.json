@@ -1,0 +1,158 @@
+{
+  "synthetic": true,
+  "kind": "semantic-contract-examples",
+  "cases": [
+    {
+      "id": "codex-subsets",
+      "input": {
+        "input_all": 1000,
+        "cached": 800,
+        "output_all": 100,
+        "reasoning": 40
+      },
+      "expected": {
+        "input": 200,
+        "cache_read": 800,
+        "output": 60,
+        "reasoning": 40,
+        "total": 1100
+      }
+    },
+    {
+      "id": "codex-repeat",
+      "input": {
+        "previous": [
+          1000,
+          800,
+          100,
+          40
+        ],
+        "current": [
+          1000,
+          800,
+          100,
+          40
+        ]
+      },
+      "expected": {
+        "delta": [
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "codex-total-carry",
+      "input": {
+        "input": 100,
+        "output": 20,
+        "reported_total": 7120
+      },
+      "expected": {
+        "classified_total": 120,
+        "unclassified_carry": 7000
+      }
+    },
+    {
+      "id": "claude-stream-update",
+      "input": {
+        "versions": [
+          {
+            "message_id": "synthetic-message",
+            "request_id": "synthetic-request",
+            "input": 10,
+            "cache_read": 100,
+            "cache_write": 20,
+            "output": 1
+          },
+          {
+            "message_id": "synthetic-message",
+            "request_id": "synthetic-request",
+            "input": 10,
+            "cache_read": 100,
+            "cache_write": 20,
+            "output": 5
+          }
+        ]
+      },
+      "expected": {
+        "total": 135
+      }
+    },
+    {
+      "id": "hermes-main-aux",
+      "input": {
+        "sessions_main": 920,
+        "model_main": 920,
+        "model_aux": 30
+      },
+      "expected": {
+        "total": 950
+      }
+    },
+    {
+      "id": "hermes-reasoning",
+      "input": {
+        "input": 100,
+        "cache_read": 800,
+        "output_inclusive": 20,
+        "reasoning": 8
+      },
+      "expected": {
+        "total": 920,
+        "output": 12,
+        "reasoning": 8
+      }
+    },
+    {
+      "id": "hermes-unallocated",
+      "input": {
+        "dated": 100,
+        "cross_day_unallocatable": 200
+      },
+      "expected": {
+        "daily": 100,
+        "unallocated": 200,
+        "total": 300
+      }
+    },
+    {
+      "id": "openclaw-source-selection",
+      "input": {
+        "backend_codex": 500,
+        "linked_main_mirror": 500,
+        "linked_runtime_mirror": 500,
+        "confirmed_non_codex": 100,
+        "unclassified_legacy": 50
+      },
+      "expected": {
+        "classified_total": 600,
+        "unclassified": 50
+      }
+    },
+    {
+      "id": "host-replacement",
+      "input": {
+        "host_a_old": 10,
+        "host_a_new": 15,
+        "host_b": 20,
+        "repeat_new": 2
+      },
+      "expected": {
+        "total": 35
+      }
+    },
+    {
+      "id": "cross-host-no-dedup",
+      "input": {
+        "host_a": 100,
+        "host_b_copied_usage": 100
+      },
+      "expected": {
+        "total": 200
+      }
+    }
+  ]
+}
