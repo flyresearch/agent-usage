@@ -10,6 +10,8 @@ use std::io::BufRead;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Record {
+    #[serde(default)]
+    pub messages: MessageCount,
     pub key: String,
     pub model: String,
     pub model_key: String,
@@ -20,8 +22,20 @@ pub struct Record {
     pub request_present: bool,
     #[serde(default)]
     pub cache_write_uncertain: bool,
+    #[serde(default)]
+    pub claude_usage_stage: u8,
     pub day: Option<String>,
     pub tokens: Tokens,
+    #[serde(default)]
+    pub interval: Option<UsageInterval>,
+    #[serde(default)]
+    pub time_basis: Option<String>,
+    #[serde(default)]
+    pub usage_kind: Option<String>,
+    #[serde(default)]
+    pub backend: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
 }
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Parsed {
@@ -153,6 +167,9 @@ pub fn parse(
     let mut unanchored_usage = false;
     let mut current_model: Option<String> = None;
     let mut context_turn: Option<String> = None;
+    let mut task_ids = BTreeSet::new();
+    let mut pending_task: Option<String> = None;
+    let mut previous_usage_task: Option<String> = None;
     let mut thread_key: Option<String> = None;
     let mut fork_owner: Option<String> = None;
     let mut fork_creation_ms = None;
@@ -215,6 +232,13 @@ pub fn parse(
             .ok_or(Error("unsupported_record_shape"))?;
         if adapter == "codex-jsonl" {
             let p = &v["payload"];
+            if kind == "event_msg" && p["type"] == "task_started" {
+                pending_task = p["turn_id"]
+                    .as_str()
+                    .filter(|s| !s.is_empty())
+                    .map(|s| hash(s.as_bytes()))
+                    .filter(|id| task_ids.insert(id.clone()));
+            }
             if kind == "session_meta" {
                 let parent = fork_parent(p)?;
                 if let Some(owner) = &fork_owner {
@@ -413,7 +437,17 @@ pub fn parse(
                         let sum = |a: [u64; 5]| a.into_iter().map(u128::from).sum::<u128>();
                         let before = sum(p.unwrap());
                         let now = sum(t);
-                        if now > 0 && (now * 100 >= before * 98 || now + sum(l) * 2 >= before) {
+                        let explicit_reset = t == l
+                            && pending_task
+                                .as_ref()
+                                .is_some_and(|id| Some(id) == context_turn.as_ref())
+                            && previous_usage_task
+                                .as_ref()
+                                .is_some_and(|id| Some(id) != pending_task.as_ref());
+                        if !explicit_reset
+                            && now > 0
+                            && (now * 100 >= before * 98 || now + sum(l) * 2 >= before)
+                        {
                             return Err(Error("ambiguous_counter_regression"));
                         }
                         out.coverage.counter_resets += 1;
@@ -445,17 +479,26 @@ pub fn parse(
                 continue;
             }
             previous = next;
+            previous_usage_task = context_turn.clone();
+            pending_task = None;
             unanchored_usage = previous.is_none();
             let raw_model = current_model.as_deref();
             out.records.push(Record {
+                messages: MessageCount::default(),
                 key: replay_key,
                 model: model(raw_model, aliases, &mut out.coverage),
                 model_key: hash(raw_model.unwrap_or("").as_bytes()),
                 message_key: None,
                 request_present: false,
                 cache_write_uncertain: false,
+                claude_usage_stage: 0,
                 day: day(&v, &mut out.coverage),
                 tokens,
+                interval: None,
+                time_basis: None,
+                usage_kind: None,
+                backend: None,
+                provider: None,
             });
         } else {
             if kind != "assistant" {
@@ -535,14 +578,40 @@ pub fn parse(
             check_claude_identity(&mut claude_identities, &message_key, request.is_some())?;
             let key = hash(&serde_json::to_vec(&(id, request)).unwrap());
             let record = Record {
+                messages: MessageCount::one(),
                 key: key.clone(),
                 model: model(msg["model"].as_str(), aliases, &mut out.coverage),
                 model_key: hash(msg["model"].as_str().unwrap_or("").as_bytes()),
                 message_key: Some(message_key),
                 request_present: request.is_some(),
                 cache_write_uncertain,
+                claude_usage_stage: if !u
+                    .as_object()
+                    .unwrap()
+                    .contains_key("cache_read_input_tokens")
+                    && !u
+                        .as_object()
+                        .unwrap()
+                        .contains_key("cache_creation_input_tokens")
+                    && tokens.output == 0
+                    && msg["stop_reason"].is_null()
+                {
+                    1
+                } else if u.get("cache_read_input_tokens").is_some()
+                    && u.get("cache_creation_input_tokens").is_some()
+                    && msg["stop_reason"].as_str().is_some_and(|s| !s.is_empty())
+                {
+                    2
+                } else {
+                    0
+                },
                 day: day(&v, &mut out.coverage),
                 tokens,
+                interval: None,
+                time_basis: None,
+                usage_kind: None,
+                backend: None,
+                provider: None,
             };
             if let Some(old) = claude.get_mut(&key) {
                 merge_claude(old, record, &mut out.coverage)?;
@@ -568,6 +637,40 @@ pub fn merge_claude(old: &mut Record, mut new: Record, coverage: &mut Coverage) 
     if old.model_key != new.model_key {
         return Err(Error("conflicting_message_model"));
     }
+    // A provisional message can report combined input before the terminal
+    // message partitions that exact total into noncached/read/write buckets.
+    // Only explicit terminal metadata plus exact conservation authorizes this;
+    // componentwise maxima would invent usage that never existed.
+    if !old.cache_write_uncertain && !new.cache_write_uncertain {
+        let partition = |r: &Record| -> Result<u64> {
+            r.tokens
+                .input
+                .checked_add(r.tokens.cache_read)
+                .and_then(|n| n.checked_add(r.tokens.cache_write))
+                .ok_or(Error("token_overflow"))
+        };
+        if old.claude_usage_stage == 1
+            && new.claude_usage_stage == 2
+            && old.tokens.input == partition(&new)?
+        {
+            if old.day != new.day {
+                new.day = None;
+            }
+            *old = new;
+            coverage.input_reclassifications += 1;
+            return Ok(());
+        }
+        if old.claude_usage_stage == 2
+            && new.claude_usage_stage == 1
+            && new.tokens.input == partition(old)?
+        {
+            if old.day != new.day {
+                old.day = None;
+            }
+            coverage.input_reclassifications += 1;
+            return Ok(());
+        }
+    }
     if old.cache_write_uncertain || new.cache_write_uncertain {
         old.cache_write_uncertain = true;
         old.tokens.cache_write = 0;
@@ -587,6 +690,7 @@ pub fn merge_claude(old: &mut Record, mut new: Record, coverage: &mut Coverage) 
     }
     if up {
         old.tokens = new.tokens;
+        old.claude_usage_stage = new.claude_usage_stage;
     }
     if old.day != new.day {
         old.day = None;

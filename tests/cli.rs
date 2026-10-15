@@ -1,3 +1,4 @@
+mod support;
 use serde_json::{json, Value};
 use std::{
     fs,
@@ -5,7 +6,7 @@ use std::{
     process::{Command, Output},
 };
 fn run(dir: &Path, args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_agent-usage"))
+    Command::new(support::binary())
         .current_dir(dir)
         .args(args)
         .output()
@@ -185,4 +186,60 @@ fn output_symlink_is_not_followed() {
         fs::read_to_string(t.path().join("preserve")).unwrap(),
         "sentinel"
     );
+}
+
+#[test]
+fn failed_source_id_is_reported_without_paths_or_raw_content() {
+    let t = setup();
+    let second = t.path().join("second");
+    fs::create_dir(&second).unwrap();
+    fs::write(second.join("bad.jsonl"), "PRIVATE_BODY_NOT_JSON\n").unwrap();
+    let mut config: Value =
+        serde_json::from_slice(&fs::read(t.path().join("config.json")).unwrap()).unwrap();
+    config["sources"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"id":"secondary","adapter":"claude-jsonl","paths":[second]}));
+    fs::write(t.path().join("config.json"), config.to_string()).unwrap();
+    let result = run(t.path(), &["collect", "--config", "config.json"]);
+    assert!(!result.status.success());
+    let value: Value = serde_json::from_slice(&result.stdout).unwrap();
+    assert_eq!(value["source_id"], "secondary");
+    assert_eq!(value["complete"], false);
+    let text = String::from_utf8(result.stdout).unwrap();
+    assert!(
+        !text.contains("PRIVATE_BODY") && !text.contains(&t.path().to_string_lossy().to_string())
+    );
+    fs::remove_file(second.join("bad.jsonl")).unwrap();
+    fs::remove_dir(&second).unwrap();
+    let result = run(t.path(), &["collect", "--config", "config.json"]);
+    let value: Value = serde_json::from_slice(&result.stdout).unwrap();
+    assert_eq!(value["source_id"], "secondary");
+    assert_eq!(value["error"], "source_missing");
+    config["sources"][1]["id"] = json!("private@example.invalid");
+    fs::write(t.path().join("config.json"), config.to_string()).unwrap();
+    let result = run(t.path(), &["collect", "--config", "config.json"]);
+    let value: Value = serde_json::from_slice(&result.stdout).unwrap();
+    assert!(value["source_id"].is_null());
+}
+
+#[test]
+fn configuration_identity_matches_collection_and_does_not_access_sources() {
+    let t = setup();
+    let identity = run(t.path(), &["config-id", "--config", "config.json"]);
+    assert!(identity.status.success());
+    let id: Value = serde_json::from_slice(&identity.stdout).unwrap();
+    assert_eq!(id["kind"], "configuration_identity");
+    assert!(!t.path().join(".agent-usage.lock").exists());
+    let collected = run(t.path(), &["collect", "--config", "config.json"]);
+    let snapshot: Value = serde_json::from_slice(&collected.stdout).unwrap();
+    assert_eq!(
+        id["configuration_fingerprint"],
+        snapshot["configuration_fingerprint"]
+    );
+    fs::remove_dir_all(t.path().join("source")).unwrap();
+    let after = run(t.path(), &["config-id", "--config", "config.json"]);
+    assert!(after.status.success());
+    assert_eq!(serde_json::from_slice::<Value>(&after.stdout).unwrap(), id);
+    assert!(!t.path().join("source").exists());
 }

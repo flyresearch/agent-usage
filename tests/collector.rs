@@ -1,3 +1,4 @@
+mod support;
 use agent_usage::*;
 use serde_json::{json, Value};
 use std::{collections::BTreeMap, fs, io::Write, process::Command};
@@ -287,7 +288,7 @@ fn missing_empty_zero_and_failure_differ() {
     assert_eq!(collect(&cfg, None).unwrap_err().0, "source_missing");
 }
 #[test]
-fn overlap_hardlink_and_symlink_rejected() {
+fn overlap_and_hardlink_rejected_but_in_scope_file_alias_is_deduplicated() {
     let t = tempfile::tempdir().unwrap();
     let nested = t.path().join("sub");
     fs::create_dir(&nested).unwrap();
@@ -302,7 +303,10 @@ fn overlap_hardlink_and_symlink_rejected() {
     {
         fs::remove_file(t.path().join("b.jsonl")).unwrap();
         std::os::unix::fs::symlink(t.path().join("a.jsonl"), t.path().join("b.jsonl")).unwrap();
-        assert_eq!(collect(&c, None).unwrap_err().0, "nested_symlink");
+        let snapshot = collect(&c, None).unwrap();
+        assert_eq!(snapshot.totals.total().unwrap(), 11);
+        assert_eq!(snapshot.sources[0].files, 1);
+        assert_eq!(snapshot.sources[0].coverage.deduplicated_symlink_files, 1);
     }
 }
 #[test]
@@ -313,7 +317,7 @@ fn cli_error_never_leaks_content_or_path() {
     fs::write(source.join("private.jsonl"), "SECRET_BODY_INVALID\n").unwrap();
     let cfg = t.path().join("config.json");
     fs::write(&cfg, serde_json::to_vec(&config(&source)).unwrap()).unwrap();
-    let out = Command::new(env!("CARGO_BIN_EXE_agent-usage"))
+    let out = Command::new(support::binary())
         .args(["collect", "--config"])
         .arg(cfg)
         .output()
@@ -617,7 +621,7 @@ fn cli_bare_cache_filename_works_cold_and_warm() {
     )
     .unwrap();
     for expected_hits in [0, 1] {
-        let result = Command::new(env!("CARGO_BIN_EXE_agent-usage"))
+        let result = Command::new(support::binary())
             .current_dir(t.path())
             .args([
                 "collect",
@@ -658,7 +662,7 @@ fn parser_revision_invalidates_old_cache_layout() {
     let result = collect(&c, Some(&cache)).unwrap();
     assert_eq!(result.sources[0].cache_hits, 0);
     assert_eq!(result.totals.input, 10);
-    assert_eq!(result.parser_version, "p2a-5");
+    assert_eq!(result.parser_version, "p2b-5");
 }
 
 #[test]
@@ -732,4 +736,217 @@ fn unchanged_cache_is_not_replaced() {
         use std::os::unix::fs::MetadataExt;
         assert_eq!(before.ino(), after.ino());
     }
+}
+
+#[cfg(unix)]
+#[test]
+fn nested_symlinks_cannot_expand_scope_or_hide_directories() {
+    use std::os::unix::fs::symlink;
+    let root = tempfile::tempdir().unwrap();
+    let outside = tempfile::tempdir().unwrap();
+    write(&outside.path().join("a.jsonl"), &[codex(10, 0, 1, 0, T)]);
+    let alias = root.path().join("alias.jsonl");
+    for target in [
+        outside.path().join("a.jsonl"),
+        outside.path().to_path_buf(),
+        root.path().join("missing.jsonl"),
+    ] {
+        symlink(target, &alias).unwrap();
+        assert_eq!(
+            collect(&config(root.path()), None).unwrap_err().0,
+            "nested_symlink"
+        );
+        fs::remove_file(&alias).unwrap();
+    }
+    let inside = root.path().join("nested");
+    fs::create_dir(&inside).unwrap();
+    symlink(&inside, &alias).unwrap();
+    assert_eq!(
+        collect(&config(root.path()), None).unwrap_err().0,
+        "nested_symlink"
+    );
+}
+
+#[test]
+fn terminal_claude_partition_replaces_conserved_provisional_input_in_both_orders() {
+    let provisional = json!({"type":"assistant","timestamp":T,"message":{"id":"synthetic-partition","model":"fixture-model","stop_reason":null,"usage":{"input_tokens":100,"output_tokens":0}}});
+    let terminal = json!({"type":"assistant","timestamp":T,"message":{"id":"synthetic-partition","model":"fixture-model","stop_reason":"end_turn","usage":{"input_tokens":10,"cache_read_input_tokens":60,"cache_creation_input_tokens":30,"output_tokens":20}}});
+    for records in [
+        vec![provisional.clone(), terminal.clone()],
+        vec![terminal.clone(), provisional.clone()],
+    ] {
+        let parsed = parse(&records, "claude-jsonl").unwrap();
+        assert_eq!(
+            sum(&parsed),
+            Tokens {
+                input: 10,
+                cache_read: 60,
+                cache_write: 30,
+                output: 20,
+                reasoning: 0
+            }
+        );
+        assert_eq!(parsed.coverage.input_reclassifications, 1);
+    }
+    for (key, value) in [
+        ("stop_reason", json!(null)),
+        (
+            "usage",
+            json!({"input_tokens":11,"cache_read_input_tokens":60,"cache_creation_input_tokens":30,"output_tokens":20}),
+        ),
+    ] {
+        let mut bad = terminal.clone();
+        bad["message"][key] = value;
+        assert_eq!(
+            parse(&[provisional.clone(), bad], "claude-jsonl")
+                .unwrap_err()
+                .0,
+            "conflicting_stream_update"
+        );
+    }
+}
+#[test]
+fn claude_partition_reconciliation_crosses_files_and_cache_without_guessing_unfinished_input() {
+    let d = tempfile::tempdir().unwrap();
+    let logs = d.path().join("logs");
+    fs::create_dir(&logs).unwrap();
+    let cache = d.path().join("cache.json");
+    let mut c = config(&logs);
+    c.sources[0].adapter = "claude-jsonl".into();
+    let preliminary = json!({"type":"assistant","timestamp":T,"message":{"id":"synthetic-partition","model":"fixture-model","usage":{"input_tokens":100,"output_tokens":0}}});
+    let final_record = json!({"type":"assistant","timestamp":T,"message":{"id":"synthetic-partition","model":"fixture-model","stop_reason":"end_turn","usage":{"input_tokens":10,"cache_read_input_tokens":60,"cache_creation_input_tokens":30,"output_tokens":20}}});
+    write(&logs.join("a.jsonl"), &[preliminary]);
+    let first = collect(&c, Some(&cache)).unwrap();
+    assert_eq!(first.totals.total().unwrap(), 0);
+    assert_eq!(first.sources[0].coverage.unclassified_usage_records, 1);
+    assert!(!first.coverage_complete);
+    write(&logs.join("b.jsonl"), &[final_record]);
+    for _ in 0..2 {
+        let next = collect(&c, Some(&cache)).unwrap();
+        assert_eq!(next.totals.total().unwrap(), 120);
+        assert_eq!(next.totals.input, 10);
+        assert_eq!(next.sources[0].coverage.input_reclassifications, 1);
+        assert_eq!(next.sources[0].coverage.unclassified_usage_records, 0);
+    }
+}
+#[test]
+fn codex_exact_last_reset_requires_a_new_explicit_matching_task() {
+    let task =
+        |id: &str| json!({"type":"event_msg","payload":{"type":"task_started","turn_id":id}});
+    let context =
+        |id: &str| json!({"type":"turn_context","payload":{"turn_id":id,"model":"fixture-model"}});
+    let a = codex(100, 60, 10, 0, T);
+    let mut b = codex(60, 40, 5, 0, "2026-01-01T01:00:00Z");
+    b["payload"]["info"]["last_token_usage"] =
+        json!({"input_tokens":60,"cached_input_tokens":40,"output_tokens":5});
+    let parsed = parse(
+        &[
+            task("one"),
+            context("one"),
+            a.clone(),
+            task("two"),
+            context("two"),
+            b.clone(),
+        ],
+        "codex-jsonl",
+    )
+    .unwrap();
+    assert_eq!(sum(&parsed).total().unwrap(), 175);
+    assert_eq!(parsed.coverage.counter_resets, 1);
+    for tail in [
+        vec![task("one"), context("one")],
+        vec![task("two"), context("mismatch")],
+        vec![context("two")],
+    ] {
+        let mut records = vec![task("one"), context("one"), a.clone()];
+        records.extend(tail);
+        records.push(b.clone());
+        assert_eq!(
+            parse(&records, "codex-jsonl").unwrap_err().0,
+            "ambiguous_counter_regression"
+        );
+    }
+}
+
+#[test]
+fn global_cache_failure_is_not_attributed_to_last_validated_source() {
+    let d = tempfile::tempdir().unwrap();
+    let logs = d.path().join("logs");
+    fs::create_dir(&logs).unwrap();
+    let cache = d.path().join("cache.json");
+    fs::write(&cache, "broken cache").unwrap();
+    let failure = collector::collect_detailed(&config(&logs), Some(&cache)).unwrap_err();
+    assert_eq!(failure.error.0, "invalid_cache");
+    assert!(failure.source_id.is_none());
+}
+
+#[test]
+fn cached_projection_is_validated_before_publication_or_cache_replacement() {
+    for (field, value) in [
+        ("model", json!("undeclared-model")),
+        ("day", json!("PRIVATE_BODY")),
+        ("backend", json!("private@example.invalid")),
+        ("time_basis", json!("PRIVATE_BODY")),
+    ] {
+        let d = tempfile::tempdir().unwrap();
+        let logs = d.path().join("logs");
+        fs::create_dir(&logs).unwrap();
+        write(&logs.join("a.jsonl"), &[codex(10, 0, 1, 0, T)]);
+        let cache = d.path().join("cache.json");
+        let cfg = config(&logs);
+        collect(&cfg, Some(&cache)).unwrap();
+        let mut v: Value = serde_json::from_slice(&fs::read(&cache).unwrap()).unwrap();
+        let file = v["files"]
+            .as_object_mut()
+            .unwrap()
+            .values_mut()
+            .next()
+            .unwrap();
+        file["parsed"]["records"][0][field] = value;
+        let bytes = serde_json::to_vec(&v).unwrap();
+        fs::write(&cache, &bytes).unwrap();
+        assert!(collect(&cfg, Some(&cache)).is_err());
+        assert_eq!(fs::read(cache).unwrap(), bytes);
+    }
+}
+
+#[test]
+fn messages_follow_identity_not_streams_files_or_cache_hits() {
+    let t = tempfile::tempdir().unwrap();
+    let root = t.path().join("source");
+    fs::create_dir(&root).unwrap();
+    write(&root.join("a.jsonl"), &[claude(1, T), claude(5, T)]);
+    write(&root.join("b.jsonl"), &[claude(5, T)]);
+    let mut c = config(&root);
+    c.sources[0].adapter = "claude-jsonl".into();
+    let cache = t.path().join("cache");
+    for _ in 0..2 {
+        let s = collect(&c, Some(&cache)).unwrap();
+        assert_eq!(s.rows[0].messages, MessageCount::one());
+        assert_eq!(output::summary(&s).unwrap()["messages"]["known"], 1);
+    }
+}
+#[test]
+fn legacy_usage_is_not_a_message_count_and_old_rows_stay_unknown() {
+    let t = tempfile::tempdir().unwrap();
+    let root = t.path().join("source");
+    fs::create_dir(&root).unwrap();
+    write(
+        &root.join("a.jsonl"),
+        &[codex(10, 0, 2, 0, T), codex(20, 0, 4, 0, T)],
+    );
+    let s = collect(&config(&root), None).unwrap();
+    assert_eq!(s.rows[0].messages, MessageCount::default());
+    let mut v = serde_json::to_value(&s).unwrap();
+    for r in v["rows"].as_array_mut().unwrap() {
+        r.as_object_mut().unwrap().remove("messages");
+    }
+    let old: Snapshot = serde_json::from_value(v).unwrap();
+    assert!(!old.rows[0].messages.complete);
+    assert!(MessageCount {
+        known: u64::MAX,
+        complete: true
+    }
+    .checked_add(MessageCount::one())
+    .is_err());
 }

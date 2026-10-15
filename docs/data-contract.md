@@ -25,3 +25,21 @@ coverage 区分可信 token、无法分配日期、未知总量基数、来源�
 ## 已知实现风险
 
 P1 的九项 Python 检查只验证参考规则，未运行上游 Rust parser。Windows 原生运行、SQLite 链接版本、OpenClaw 同调用归属及暖扫描性能仍需实测。不得宣称全量验收通过。
+
+## Observed streaming refinements (p2b-4)
+
+- Codex: an exact `total == last` reset is accepted at a previously unseen explicit task ID only when the matching turn context differs from the preceding usage turn. Replayed/mismatched task IDs do not authorize small regressions. Resets remain diagnosed.
+- Claude: an initial zero-output message without cache fields can precede a terminal message that partitions the same combined input into input/cache-read/cache-write. Only matching message identity, explicit terminal/cache fields and exact input conservation authorize replacement in either arrival order. Unknown or contradictory updates still fail; unresolved provisional input is unclassified rather than presented as noncached input.
+- A regular JSONL symlink whose canonical target is already inside the same configured root is an excluded duplicate alias. Directory, dangling, out-of-scope and other-format links remain rejected. The exclusion has an explicit `deduplicated_symlink_files` count.
+
+## 已计量响应/API 调用计数（p2b-5）
+
+每行新增 `messages: {known, complete}`。这是已识别用量对应的助手响应/API 调用数，不是用户消息数、工具消息数、日志行数或对话轮数。去重、镜像剔除和流式归并先于计数汇总；计数相加检查溢出。
+
+- 新版 Codex 按 response 身份计一次；旧累计 token_count 无可靠响应数，保留未知。
+- Claude 按已归并的 message/request 身份计一次，未完成的 provisional 用量不计。
+- agy 有 response 身份时计一次；无身份 generation 保留未知。
+- Hermes 优先读取可选 `session_model_usage.api_call_count`，缺字段/null 时未知，非法负数失败。会话残差仍未知，不把聚合行数当调用数。
+- OpenClaw 已认可的非 Codex assistant 用量事件按原去重身份计一次；runtime/mirror 不计，专属 Codex 来源遵循 Codex 规则。
+
+同一汇总行可同时包含已知计数与未知部分：known 相加，complete 为各部分的逻辑与。旧快照缺字段时等价于 `{known:0, complete:false}`，不是已验证的真实零。计数覆盖仅限已识别用量，不声明全部历史对话完整。

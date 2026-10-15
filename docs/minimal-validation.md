@@ -40,4 +40,27 @@ Cold/warm performance depends on the selected corpus and filesystem. Measure you
 
 ## Remaining boundaries
 
-Complete upstream tokscale-core execution comparison, broader historical/headless formats, byte-level incremental parsing, concurrent-collection control, native platform qualification, SQLite adapters, and multi-host aggregation remain future work. Recognized unmetered or contradictory fields stay explicit in coverage; read/schema/identity failures are not silently converted to zero.
+Complete upstream tokscale-core execution comparison, broader historical/headless formats, byte-level incremental parsing, remote per-host coordination, native platform qualification, SQLite adapters, and multi-host aggregation remain future work. Recognized unmetered or contradictory fields stay explicit in coverage; read/schema/identity failures are not silently converted to zero.
+
+
+## Local collection serialization
+
+The current working revision adds 15 locking/configuration tests to the 81-test public baseline (96 ordinary tests total on Unix). An ignored helper test is invoked as a real subprocess by the crash-recovery test, not counted as a skipped acceptance scenario.
+
+Tests exercise cross-process contention, shared state across different configs, directory aliases, partial acquisition cleanup, marker validation, readonly reports while locked, OS lock release after termination, and configuration replacement/removal/malformed edits before publication. A test-only FIFO at the actual cache read provides a deterministic process barrier; no test hook is added to the production CLI. Formatting-only config edits are accepted.
+
+Locking uses Rust standard-library File::try_lock with a declared Rust 1.91 minimum. No new dependency or provider initialization is introduced. Validation of the new change is local until it is separately committed/pushed and public CI runs.
+
+
+## SQLite and native UI work in progress
+
+The agy adapter adds 16 synthetic tests to the current collector checks (112
+ordinary tests on the qualified Unix development platform, plus the subprocess
+helper). They exercise readonly transactions and committed/uncommitted WAL using
+the actual bundled SQLite library; see [agy-adapter.md](agy-adapter.md).
+
+The separate offline native UI target has an 8-case standalone Swift check for
+snapshot validation and pre-aggregation filtering. It has also been locally
+built, launched and connected to real collector output. No private measurements
+or screenshots are published here. This is local UI evidence, not completion of
+the full multi-host/five-source goal tracked in [first-release.md](first-release.md).

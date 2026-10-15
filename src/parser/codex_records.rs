@@ -114,14 +114,21 @@ impl ResponseUsage {
             .model
             .filter(|_| context.turn == Some(hash(turn_id.as_bytes()).as_str()));
         records.push(Record {
+            messages: MessageCount::one(),
             key,
             model: model(raw_model, context.aliases, cov),
             model_key: hash(raw_model.unwrap_or("").as_bytes()),
             message_key: None,
             request_present: false,
             cache_write_uncertain: false,
+            claude_usage_stage: 0,
             day: day(v, cov),
             tokens: canonical(usage)?,
+            interval: None,
+            time_basis: None,
+            usage_kind: None,
+            backend: None,
+            provider: None,
         });
         self.last_record = Some(records.len() - 1);
         Ok(())

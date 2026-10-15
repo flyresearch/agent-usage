@@ -42,3 +42,10 @@ p2a-2 进一步明确偏离：无累计基线时 last-only→total-only 拒绝�
 
 
 p2a-3 另审查官方 openai/codex 固定 commit `092d3acd6bec3e3a14bdc7e7a2810ab628ab759d` 的 protocol/session/compaction 调用链，许可证 Apache-2.0。没有复制其实现或新增上游 crate 依赖；根据已确认数据契约新增本地 response 观测 adapter，证据见 [专项记录](codex-response-usage.md)。这不改变“未运行完整上游 tokscale-core parser”的验收边界。
+
+
+P2b 引入固定 rusqlite 0.40.2（MIT），bundled libsqlite3-sys 0.38.2（许可证与 SQLite public-domain 来源见发布包元数据）。只启用 bundled，不引入扩展加载或 provider 网络模块。链接版本在运行输出中记录；readonly/WAL 行为由真实 adapter 的合成 DB 测试验证。当前该绑定的 bundled 运行库实测为 SQLite 3.53.2。此前“无 SQLite 依赖”的描述仅适用于 P2a 历史基线。agy 字段适配来源仍是同一固定 tokscale-core revision，保留现有 MIT 归属。
+
+## Zstd event decoding
+
+The OpenClaw adapter uses crates.io `zstd = 0.13.3` (MIT), pinned in Cargo.toml and Cargo.lock. Published crate provenance is zstd-rs revision `52e9d41a645fb49edcf1ed3df765f380dbcf13b2`. Locked transitive bindings are zstd-safe 7.3.0 and zstd-sys 2.1.1+zstd.1.5.7 (BSD-3-Clause), the latter from revision `9167d35a0d9bfdd7ce2c983c0cdc56acbdab6526`; bundled upstream Zstandard is 1.5.7. Licenses are retained under third_party/zstd, third_party/zstd-safe, and third_party/zstd-sys. Default Rust features are disabled; there is no dynamic extension loading, dictionary builder or provider initialization. Decoding enforces an explicit 16 MiB event cap. No private probe code was copied into the adapter.

@@ -2,6 +2,7 @@
 name = "agent-usage"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.91"
 publish = false
 license = "MIT"
 repository = "https://github.com/flyresearch/agent-usage"
@@ -16,3 +17,7 @@ walkdir = "2"
 
 tempfile = "3"
 same-file = "1"
+
+rusqlite = { version = "=0.40.2", default-features = false, features = ["bundled"] }
+
+zstd = { version = "=0.13.3", default-features = false }

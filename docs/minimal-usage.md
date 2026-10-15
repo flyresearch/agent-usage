@@ -14,7 +14,7 @@
 | 缓存 | $HOME/.local/share/agent-usage/cache.json |
 | 快照 | $HOME/.local/share/agent-usage/snapshot.json |
 
-支持 XDG_CONFIG_HOME/XDG_DATA_HOME，也可通过 AGENT_USAGE_CONFIG、AGENT_USAGE_STATE_DIR 指定位置。目录须已存在。
+支持 XDG_CONFIG_HOME/XDG_DATA_HOME，也可通过 AGENT_USAGE_CONFIG、AGENT_USAGE_STATE_DIR 指定位置。目录须已存在，且配置、缓存、快照所在目录需要允许创建锁标记文件。
 
 配置示例中的路径是占位符，必须替换为自己明确授权读取的绝对目录，不会展开 ~ 或环境变量：
 
@@ -34,12 +34,14 @@
 
 model_aliases 的键是本地来源中的模型名，值是允许导出的标签。值限 1–64 位 ASCII 字母数字及 ._-，应选不含私人信息的标签。未配置的模型归入 unknown，仍保留 token。修改配置会使缓存失效。
 
+这些值也直接用于 UI 模型名称。日常使用应为已核对的模型配置可读名称；不要把验证阶段的 `model-哈希` 匿名标签当作最终显示名称。标准模型名符合标签限制时可原样映射；含 `/`、`:` 等字符时显式选择可读别名。多机配置修改后须同步更新 fleet 中对应的配置指纹，再重新采集；不要直接篡改保存的快照。
+
 ## 使用
 
     ./scripts/usage.sh refresh
     ./scripts/usage.sh report
 
-refresh 读取配置并采集，成功后原子替换快照；report 仅汇总已保存快照，不扫描来源。刷新失败后 report 仍可能显示旧结果，请检查 generated_at 和刷新退出码。不要同时运行多个 refresh。
+refresh 读取配置并采集，成功后原子替换快照；report 仅汇总已保存快照，不扫描来源。刷新失败后 report 仍可能显示旧结果，请检查 generated_at 和刷新退出码。共享配置或状态目录的 refresh 会立即返回 collection_busy，等当前采集结束后重试即可；report 无需等待。
 
 也可直接指定所有文件：
 
@@ -63,3 +65,22 @@ complete=true 表示本轮来源读取/解析成功。coverage_complete=false �
 ## 限制
 
 仅 macOS arm64 已原生验证；其他平台不作生产承诺。变化文件整文件重读；未变文件免重读，未变缓存不重写。删除源日志会降低下一次成功快照的总量。缓存与快照各自原子替换，不是跨文件事务或永久账本。
+
+
+## 并发与配置变更
+
+CLI 在配置、缓存和快照目录中使用固定的空文件 .agent-usage.lock 持有操作系统排他锁，范围为目录：同目录中的不同配置或状态文件也会互斥。不同目录且不共享状态的采集可独立运行。该文件仅是稳定的锁载体，不保存 PID、路径或配置内容；Unix 新建权限为 0600。
+
+进程正常退出或被终止后，操作系统自动释放锁；标记文件仍保留。采集期间不要删除标记文件或移动这些目录，否则可能破坏锁身份。锁是本地、协作式保护，不是远端分布式锁；旧版本 CLI 和直接调用 library 的程序不会自动参与。
+
+CLI 获锁后和发布前会重新读取配置，语义变化、删除或损坏返回 configuration_changed，保留旧快照；仅空白/键顺序变化不会失败。这是边界复核，不是配置编辑器与快照之间的原子事务，仍应避免在采集过程中修改配置。发生晚期配置变化时，可重建的缓存可能已更新，但不会发布旧配置的快照。
+
+配置/状态目录不能放在来源日志目录内；锁文件不能是 symlink、目录或含内容的现有文件。collection_busy、lock_open_failed 等错误不会泄露实际路径或秘密。
+
+Hermes databases use `adapter: "hermes-sqlite"` and explicit database file paths.
+See [Hermes accounting and interval coverage](hermes-adapter.md); directory roots
+are not supported for this adapter. Keep this configuration outside the checkout.
+
+OpenClaw uses paired explicit `openclaw-sqlite` database files and
+`openclaw-codex-jsonl` dedicated session directories. Keep the dedicated path
+out of ordinary Codex sources. [Attribution and limitations](openclaw-adapter.md).

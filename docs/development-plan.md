@@ -1,18 +1,18 @@
 # 开发计划
 
-当前为 experimental 单机最小版本，支持 Codex/Claude JSONL。参见 [使用说明](minimal-usage.md) 与 [验证状态](minimal-validation.md)。历史 coverage 缺口、更多来源和多机汇总仍是后续工作。
+当前为 experimental 单机最小版本，支持 Codex/Claude JSONL、agy/Hermes/OpenClaw SQLite 及专属 OpenClaw Codex 来源。参见 [使用说明](minimal-usage.md) 与 [验证状态](minimal-validation.md)。已实现按需多机汇总；历史 coverage 缺口和完整试运行验收仍待完成。
 
 ## 仓库与依赖
 
-本仓目前维护 Rust collector、配置、版本化 JSON 协议、本地快照和测试。SSH 调用、SQLite last-good 汇总与可选界面属于规划，不是当前功能。
+本仓目前维护 Rust collector、配置、版本化 JSON 协议、本地快照和测试。已实现按需本地/SSH 调用与 SQLite last-good 汇总；原生界面位于独立 Syrtis fork，多机 UI、已计量调用数和目录价估算已接入。
 
-优先评估固定 tokscale-core revision `fcb85923e5544488f98001cfa390740d0009b9da` 的本地 parser。该版本来自 Syrtis v2.7.0 调查基线，不代表可以原样满足全部来源。已完成许可证、依赖和 parser 接口审查。本轮采用窄范围规则适配，未引入整个引擎；原因与行为差异见 [依赖评估](dependency-review.md)。平台仅 macOS arm64 原生验证，后续需要完整引擎兼容时再决定 fork。
+优先评估固定 tokscale-core revision `fcb85923e5544488f98001cfa390740d0009b9da` 的本地 parser。该版本来自 Syrtis v2.7.0 调查基线，不代表可以原样满足全部来源。已完成许可证、依赖和 parser 接口审查。本轮采用窄范围规则适配，未引入整个引擎；原因与行为差异见 [依赖评估](dependency-review.md)。collector 已有 macOS arm64/x86_64 和 Windows x86_64 GNU 原生验证；UI 复用独立 Syrtis fork 的原版 target。
 
 ## 分阶段交付
 
 1. **P2a：本地最小闭环。** 初始化 Rust crate，明确配置与快照 schema，实现多目录 Codex/Claude adapter、累计差分和流式更新处理。测试实际 parser，随后在开发机器只读对拍统计字段。未知 total carry、缺时间与异常字段要进入 coverage。
 2. **P2b：补足来源。** agy SQLite/protobuf、Hermes 主/辅助调用和跨日未分摊、OpenClaw SQLite/Zstd 与 Codex 后端归属。补同调用多存储的人工 fixture；不以模型名决定后端。逐平台验证 macOS arm64/x86_64、Windows x86_64。
-3. **P3：汇总。** SSH 超时、每机单飞、整机快照事务替换、配置版本匹配、last-good 恢复与跨机简单相加。默认建议五分钟轮询、远端并发二；实际参数留在私有配置。
+3. **P3：汇总。** 本地 CLI 已实现共享配置/状态目录的协作锁与发布前配置复核；后续仍需 SSH 超时、远端每机单飞、整机快照事务替换、配置版本匹配、last-good 恢复与跨机简单相加。默认建议五分钟轮询、远端并发二；实际参数留在私有配置。
 4. **P4：界面。** fork Syrtis，使用独立 bundle ID、存储目录和手动更新路径；展示全部/单机、模型、日期、来源与陈旧状态。后台采集不阻塞 GUI。
 5. **P5：试运行。** 四机真实运行 24–48 小时，验证离线恢复、重复刷新、活跃 WAL、重启和资源开销，记录回滚步骤。
 

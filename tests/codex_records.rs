@@ -36,6 +36,7 @@ fn record_and_mirrors_count_once() {
     .unwrap();
     assert_eq!(total(&p), 120);
     assert_eq!(p.coverage.response_usage_records, 1);
+    assert_eq!(p.records[0].messages, MessageCount::one());
     assert_eq!(p.coverage.mirrored_usage_records, 2);
     assert_eq!(p.records[0].model, "test-model");
 }
