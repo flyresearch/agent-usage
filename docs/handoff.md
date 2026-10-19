@@ -183,3 +183,19 @@ Historical collection remains local-only. The native UI now has separate opt-in
 live-metrics and Codex app-server quota settings. The latter is an independent
 UI bridge; it is not a collector/provider-login dependency. Unsupported quota
 providers and old collectors must remain unavailable/partial, never zero.
+
+## Fleet p2b-9 rollout qualification
+
+The configured macOS arm64, two macOS Intel and Windows GNU collectors now run
+parser p2b-9 from collector revision `d140eb4`. Each remote candidate passed
+native configuration-identity and real-source collection checks before replacing
+the existing executable. The Windows native suite passed 178 tests; its candidate
+also executed with only Windows system directories on PATH. Remote executable,
+configuration and cache rollback copies, plus the central store backup, remain
+private. Source configurations and configured source sets were not expanded.
+
+A subsequent four-host refresh returned fresh p2b-9 snapshots with recent-activity
+reports on all hosts. The native UI's actual-report projection check passed for
+hourly/role totals and coverage reporting. This closes the old-collector protocol
+gap, not historical attribution gaps: missing timestamps/roles, unsupported recent
+Hermes interval activity and other source coverage limits remain explicitly partial.
