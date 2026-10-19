@@ -56,6 +56,8 @@ fn splits_subsets_and_counts_calls_not_traces_or_mirrors() {
         );
         assert_eq!(r.messages, MessageCount::one());
         assert_eq!(r.day.as_deref(), Some("2026-01-02"));
+        assert_eq!(r.hour, Some(0));
+        assert_eq!(r.execution_role, None);
     }
 }
 #[test]

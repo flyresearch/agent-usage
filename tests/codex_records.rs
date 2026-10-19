@@ -567,3 +567,22 @@ fn early_unmetered_transcript_is_not_claimed_as_zero_usage() {
         "unsupported_usage_record"
     );
 }
+
+#[test]
+fn response_hour_and_subagent_metadata_do_not_export_private_names() {
+    let meta = json!({"type":"session_meta","payload":{"id":"synthetic-thread","source":{"subagent":{"thread_spawn":{"agent_role":"PRIVATE-NAME"}}}}});
+    let p = parse(&[meta, context(), record("one", 10, 2)]).unwrap();
+    assert_eq!(p.records[0].hour, Some(8));
+    assert_eq!(p.records[0].execution_role.as_deref(), Some("subagent"));
+    assert!(!serde_json::to_string(&p).unwrap().contains("PRIVATE-NAME"));
+}
+#[test]
+fn duplicate_response_hour_conflict_is_unallocated_not_double_counted() {
+    let a = record("one", 10, 2);
+    let mut b = a.clone();
+    b["timestamp"] = json!("2026-01-01T01:00:00Z");
+    let p = parse(&[context(), a, b]).unwrap();
+    assert_eq!(p.records.len(), 1);
+    assert_eq!(p.records[0].hour, None);
+    assert_eq!(total(&p), 12);
+}

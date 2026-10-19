@@ -367,6 +367,8 @@ fn collect_inner(
                 } else if old.messages != r.messages
                     || old.tokens != r.tokens
                     || old.day != r.day
+                    || old.hour != r.hour
+                    || old.execution_role != r.execution_role
                     || old.model_key != r.model_key
                     || old.backend != r.backend
                     || old.provider != r.provider
@@ -398,6 +400,8 @@ fn collect_inner(
         String,
         Option<String>,
         Option<String>,
+        Option<String>,
+        Option<u8>,
         Option<String>,
     );
     let mut grouped: BTreeMap<GroupKey, (Tokens, Option<UsageInterval>, MessageCount)> =
@@ -438,6 +442,8 @@ fn collect_inner(
             r.usage_kind,
             r.backend,
             r.provider,
+            r.hour,
+            r.execution_role,
         );
         if let Some((tokens, bounds, messages)) = grouped.get_mut(&key) {
             *tokens = tokens.checked_add(r.tokens)?;
@@ -491,7 +497,7 @@ fn collect_inner(
         .into_iter()
         .map(
             |(
-                (i, model, day, time_basis, usage_kind, backend, provider),
+                (i, model, day, time_basis, usage_kind, backend, provider, hour, execution_role),
                 (tokens, interval, messages),
             )| {
                 Row {
@@ -508,6 +514,8 @@ fn collect_inner(
                     .into(),
                     model,
                     day,
+                    hour,
+                    execution_role,
                     time_basis,
                     usage_kind,
                     backend,

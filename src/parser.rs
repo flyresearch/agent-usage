@@ -3,7 +3,7 @@
 mod codex_records;
 mod workbuddy;
 use crate::protocol::*;
-use chrono::{DateTime, FixedOffset};
+use chrono::{DateTime, FixedOffset, Timelike};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
@@ -26,6 +26,10 @@ pub struct Record {
     #[serde(default)]
     pub claude_usage_stage: u8,
     pub day: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hour: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution_role: Option<String>,
     pub tokens: Tokens,
     #[serde(default)]
     pub interval: Option<UsageInterval>,
@@ -66,6 +70,29 @@ fn day(v: &Value, coverage: &mut Coverage) -> Option<String> {
         coverage.missing_time_records += 1;
     }
     date
+}
+/// Event timestamps only; aggregate intervals are deliberately not spread over hours.
+pub(crate) fn event_hour(value: &Value) -> Option<u8> {
+    let time = if let Some(text) = value.as_str() {
+        DateTime::parse_from_rfc3339(text)
+            .ok()
+            .map(|v| v.with_timezone(&chrono::Utc))
+    } else {
+        value.as_i64().and_then(DateTime::from_timestamp_millis)
+    };
+    time.map(|v| {
+        v.with_timezone(&FixedOffset::east_opt(8 * 3600).unwrap())
+            .hour() as u8
+    })
+}
+fn string_event_hour(value: &Value) -> Option<u8> {
+    value.as_str().and_then(|_| event_hour(value))
+}
+fn claude_role(value: &Value) -> Option<String> {
+    value
+        .get("isSidechain")
+        .and_then(Value::as_bool)
+        .map(|sub| if sub { "subagent" } else { "main" }.into())
 }
 fn model(raw: Option<&str>, aliases: &BTreeMap<String, String>, cov: &mut Coverage) -> String {
     match raw.and_then(|s| aliases.get(s)) {
@@ -170,6 +197,7 @@ pub fn parse(
     let mut previous = None;
     let mut unanchored_usage = false;
     let mut current_model: Option<String> = None;
+    let mut execution_role: Option<String> = None;
     let mut context_turn: Option<String> = None;
     let mut task_ids = BTreeSet::new();
     let mut pending_task: Option<String> = None;
@@ -288,6 +316,19 @@ pub fn parse(
                     fork_owner = Some(owner);
                     fork_ancestors.insert(parent);
                 }
+                execution_role = if p["source"]
+                    .get("subagent")
+                    .is_some_and(|v| v.is_object() || v.is_string())
+                {
+                    Some("subagent".into())
+                } else if matches!(
+                    p["source"].as_str(),
+                    Some("cli" | "vscode" | "exec" | "appServer")
+                ) {
+                    Some("main".into())
+                } else {
+                    None
+                };
                 if let Some(id) = p["id"].as_str() {
                     let next = hash(id.as_bytes());
                     if (previous.is_some() || unanchored_usage || response_usage.active())
@@ -324,6 +365,7 @@ pub fn parse(
                         turn: context_turn.as_deref(),
                         model: current_model.as_deref(),
                         aliases,
+                        execution_role: execution_role.as_deref(),
                     },
                     &mut out,
                 )?;
@@ -497,6 +539,8 @@ pub fn parse(
                 cache_write_uncertain: false,
                 claude_usage_stage: 0,
                 day: day(&v, &mut out.coverage),
+                hour: string_event_hour(&v["timestamp"]),
+                execution_role: execution_role.clone(),
                 tokens,
                 interval: None,
                 time_basis: None,
@@ -610,6 +654,8 @@ pub fn parse(
                     0
                 },
                 day: day(&v, &mut out.coverage),
+                hour: string_event_hour(&v["timestamp"]),
+                execution_role: claude_role(&v),
                 tokens,
                 interval: None,
                 time_basis: None,
@@ -640,6 +686,14 @@ pub fn parse(
 pub fn merge_claude(old: &mut Record, mut new: Record, coverage: &mut Coverage) -> Result<()> {
     if old.model_key != new.model_key {
         return Err(Error("conflicting_message_model"));
+    }
+    if old.execution_role != new.execution_role {
+        old.execution_role = None;
+        new.execution_role = None;
+    }
+    if old.hour != new.hour || old.day != new.day {
+        old.hour = None;
+        new.hour = None;
     }
     // A provisional message can report combined input before the terminal
     // message partitions that exact total into noncached/read/write buckets.

@@ -124,6 +124,16 @@ pub fn summary(snapshot: &Snapshot) -> Result<Value> {
         }
     }
     for row in &snapshot.rows {
+        if row
+            .hour
+            .is_some_and(|h| h > 23 || row.day.is_none() || row.time_basis != "event_timestamp")
+            || row
+                .execution_role
+                .as_deref()
+                .is_some_and(|r| !["main", "subagent"].contains(&r))
+        {
+            return Err(Error("invalid_snapshot"));
+        }
         if !["codex", "claude", "agy", "hermes", "openclaw", "workbuddy"]
             .contains(&row.agent.as_str())
             || !label(&row.model)

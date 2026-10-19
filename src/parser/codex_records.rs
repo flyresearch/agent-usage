@@ -1,11 +1,14 @@
 //! Response-level Codex records (source contract pinned in docs/codex-response-usage.md).
 //! No provider SDK or upstream implementation is linked/copied.
-use super::{canonical, codex_usage, day, model, number, unknown_fields, Parsed, Record};
+use super::{
+    canonical, codex_usage, day, model, number, string_event_hour, unknown_fields, Parsed, Record,
+};
 use crate::protocol::*;
 use serde_json::Value;
 use std::collections::BTreeMap;
 
 pub(super) struct Context<'a> {
+    pub execution_role: Option<&'a str>,
     pub thread: Option<&'a str>,
     pub turn: Option<&'a str>,
     pub model: Option<&'a str>,
@@ -102,6 +105,18 @@ impl ResponseUsage {
             if old.0 != signature {
                 return Err(Error("conflicting_response_replay"));
             }
+            let previous = &mut records[old.1];
+            let next_day = day(v, cov);
+            if previous.day != next_day {
+                previous.day = None;
+                previous.hour = None;
+            }
+            if previous.hour != string_event_hour(&v["timestamp"]) {
+                previous.hour = None;
+            }
+            if previous.execution_role.as_deref() != context.execution_role {
+                previous.execution_role = None;
+            }
             self.last = Some(usage);
             self.last_record = Some(old.1);
             return Ok(());
@@ -123,6 +138,8 @@ impl ResponseUsage {
             cache_write_uncertain: false,
             claude_usage_stage: 0,
             day: day(v, cov),
+            hour: string_event_hour(&v["timestamp"]),
+            execution_role: context.execution_role.map(str::to_owned),
             tokens: canonical(usage)?,
             interval: None,
             time_basis: None,

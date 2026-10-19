@@ -108,3 +108,13 @@ unknown, never as verified zero. Aggregation checks u64 overflow and propagates
 partial coverage. Token buckets and snapshot schema version remain unchanged.
 `report` adds the aggregate `messages` object. Versioned monetary estimates are
 computed by the UI's offline catalog and do not overwrite snapshot `cost`.
+
+## Additive analysis dimensions (parser p2b-8)
+
+Rows may carry `hour` (integer 0–23 in Asia/Singapore) and `execution_role`
+(`main` or `subagent`). Both are optional; absence means unknown. Hour requires
+a valid `day` and `time_basis=event_timestamp`. Aggregate intervals are never
+assigned an hour. Hour and role participate in grouping, so consumers must
+include them in row identity and reaggregate rows for daily/model totals.
+Old daily-only snapshots remain valid and explicitly lack hourly coverage.
+These dimensions do not change token totals or metered response count semantics.

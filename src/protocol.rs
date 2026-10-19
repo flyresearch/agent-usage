@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-pub const PARSER_VERSION: &str = "p2b-7";
+pub const PARSER_VERSION: &str = "p2b-8";
 pub type Result<T> = std::result::Result<T, Error>;
 
 // Static error codes only: never expose a serde/io error or source text.
@@ -178,6 +178,10 @@ pub struct Row {
     pub agent: String,
     pub model: String,
     pub day: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hour: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution_role: Option<String>,
     pub time_basis: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub interval: Option<UsageInterval>,

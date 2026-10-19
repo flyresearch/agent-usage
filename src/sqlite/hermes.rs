@@ -182,6 +182,8 @@ pub fn parse_file(
             let last: Option<f64> = row.get(9).map_err(|_| Error("invalid_sqlite_field"))?;
             let (day, bounds, basis) = interval(first, last, &mut out.coverage)?;
             out.records.push(Record {
+                hour: None,
+                execution_role: None,
                 messages,
                 key: hash(&serde_json::to_vec(&("hermes-model", file_key, sid, ordinal)).unwrap()),
                 model: model(raw_model.as_deref(), aliases, &mut out.coverage),
@@ -235,6 +237,8 @@ pub fn parse_file(
             // sessions.model can be the latest model of a multi-model session;
             // it does not prove which model produced an uncovered residual.
             out.records.push(Record {
+                hour: None,
+                execution_role: None,
                 messages: MessageCount::default(),
                 key: hash(&serde_json::to_vec(&("hermes-residual", file_key, id)).unwrap()),
                 model: model(None, aliases, &mut out.coverage),

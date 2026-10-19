@@ -1,7 +1,7 @@
 # WorkBuddy JSONL adapter
 
 `workbuddy-jsonl` projects per-call `providerData.usage` from explicitly configured
-project transcript directories. It emits agent `workbuddy`, uses parser p2b-7,
+project transcript directories. It emits agent `workbuddy`, uses parser p2b-8,
 and does not read credentials, the WorkBuddy database, trace logs or online
 billing. Configure one source containing all intended transcript roots to dedup
 copied calls across those roots. Separate source IDs remain independent.

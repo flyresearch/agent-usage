@@ -662,7 +662,7 @@ fn parser_revision_invalidates_old_cache_layout() {
     let result = collect(&c, Some(&cache)).unwrap();
     assert_eq!(result.sources[0].cache_hits, 0);
     assert_eq!(result.totals.input, 10);
-    assert_eq!(result.parser_version, "p2b-7");
+    assert_eq!(result.parser_version, "p2b-8");
 }
 
 #[test]

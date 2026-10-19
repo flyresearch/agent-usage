@@ -41,6 +41,7 @@ fn main_auxiliary_and_residual_are_disjoint() {
     usage(&c, None, 10, Some(1767225601.));
     usage(&c, Some("helper"), 2, Some(1767225601.));
     let s = collect(&config(&p), None).unwrap();
+    assert!(s.rows.iter().all(|r| r.hour.is_none()));
     assert_eq!(
         s.totals,
         Tokens {

@@ -45,3 +45,17 @@ P1 的九项 Python 检查只验证参考规则，未运行上游 Rust parser。
 - OpenClaw 已认可的非 Codex assistant 用量事件按原去重身份计一次；runtime/mirror 不计，专属 Codex 来源遵循 Codex 规则。
 
 同一汇总行可同时包含已知计数与未知部分：known 相加，complete 为各部分的逻辑与。旧快照缺字段时等价于 `{known:0, complete:false}`，不是已验证的真实零。计数覆盖仅限已识别用量，不声明全部历史对话完整。
+
+## 小时与执行角色维度（p2b-8）
+
+快照行增加可选 `hour`（0–23，Asia/Singapore）与 `execution_role`
+（`main` / `subagent`）。字段缺失表示未知，不默认为 00:00 或主代理。
+`hour` 仅允许出现在有 day 的 `event_timestamp` 行；旧快照、Hermes 区间汇总
+和存在时间冲突的流式记录保留未知小时。小时桶与未分摊小时的行合计仍等于总量。
+累计差分按其用量事件时间归桶，不声称能还原区间内每次调用的准确时刻。
+
+执行角色只读取明确元数据：Claude 的 `isSidechain` 标志，以及 Codex 的
+session source（明确的 CLI/IDE/exec/appServer 或 subagent 来源）。不凭模型名、
+工具参数或可自定义代理名称推断；其他来源暂不提供角色。仅导出上述受控标签，
+不导出代理名称。流式记录对小时/角色有分歧时保持未知；重放不额外增加用量。
+调用数仍是已计量响应数，不是对话轮数。

@@ -218,6 +218,8 @@ pub fn parse_file(
                 cache_write_uncertain: false,
                 claude_usage_stage: 0,
                 day,
+                hour: time.and_then(|t| crate::parser::event_hour(&serde_json::json!(t))),
+                execution_role: None,
                 tokens,
                 interval: None,
                 time_basis: None,
@@ -228,6 +230,7 @@ pub fn parse_file(
             if let Some(old) = records.get(&key) {
                 if old.tokens != record.tokens
                     || old.day != record.day
+                    || old.hour != record.hour
                     || old.model_key != record.model_key
                 {
                     return Err(Error("conflicting_response_replay"));

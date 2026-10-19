@@ -209,6 +209,8 @@ pub fn parse_file(
                 cache_write_uncertain: false,
                 claude_usage_stage: 0,
                 day: day(&m["timestamp"], &mut out.coverage),
+                hour: crate::parser::event_hour(&m["timestamp"]),
+                execution_role: None,
                 tokens: t,
                 interval: None,
                 time_basis: None,
@@ -221,6 +223,7 @@ pub fn parse_file(
             if let Some(old) = seen.get(&key) {
                 if old.tokens != record.tokens
                     || old.day != record.day
+                    || old.hour != record.hour
                     || old.model_key != record.model_key
                     || old.backend != record.backend
                     || old.provider != record.provider

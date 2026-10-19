@@ -2,7 +2,7 @@
 
 **Experimental local usage collector for Codex, Claude Code, Antigravity CLI (agy), Hermes, OpenClaw, and WorkBuddy.**
 
-Read explicitly configured JSONL directories or supported SQLite sources on the source machine, normalize token usage, and export versioned JSON snapshots. Summaries group known usage by agent and model; snapshots also retain daily buckets. Collection does not access login credentials, refresh tokens, contact model providers, or upload session contents.
+Read explicitly configured JSONL directories or supported SQLite sources on the source machine, normalize token usage, and export versioned JSON snapshots. Summaries group known usage by agent and model; snapshots also retain daily/hourly buckets and known main/subagent roles. Collection does not access login credentials, refresh tokens, contact model providers, or upload session contents.
 
 This is an early collector and fleet CLI, exercised on macOS arm64/x86_64 and Windows x86_64 GNU. A separate native macOS UI is being qualified. Historical coverage remains incomplete. It reports **known usage**, not an authoritative billing statement.
 

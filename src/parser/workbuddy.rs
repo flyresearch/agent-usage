@@ -166,6 +166,8 @@ pub(super) fn parse(
             cache_write_uncertain: false,
             claude_usage_stage: 0,
             day: date,
+            hour: event_hour(&v["timestamp"]),
+            execution_role: None,
             tokens,
             interval: None,
             time_basis: None,
@@ -178,6 +180,7 @@ pub(super) fn parse(
             let old: &Record = old;
             if old.tokens != record.tokens
                 || old.day != record.day
+                || old.hour != record.hour
                 || old.model_key != record.model_key
             {
                 return Err(Error("conflicting_replay"));
