@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-pub const PARSER_VERSION: &str = "p2b-8";
+pub const PARSER_VERSION: &str = "p2b-9";
 pub type Result<T> = std::result::Result<T, Error>;
 
 // Static error codes only: never expose a serde/io error or source text.
@@ -202,8 +202,27 @@ pub struct SourceStatus {
     pub bytes_read: u64,
     pub coverage: Coverage,
 }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActivityBucket {
+    pub timestamp: i64,
+    pub agent: String,
+    pub tokens: u64,
+    pub messages: MessageCount,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecentActivity {
+    pub as_of: i64,
+    pub window_seconds: u64,
+    pub coverage_complete: bool,
+    pub unlocated_records: u64,
+    pub future_records: u64,
+    pub unsupported_sources: Vec<String>,
+    pub buckets: Vec<ActivityBucket>,
+}
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Snapshot {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recent_activity: Option<RecentActivity>,
     pub schema_version: u32,
     pub collector_version: String,
     pub parser_version: String,

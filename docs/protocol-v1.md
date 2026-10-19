@@ -118,3 +118,13 @@ assigned an hour. Hour and role participate in grouping, so consumers must
 include them in row identity and reaggregate rows for daily/model totals.
 Old daily-only snapshots remain valid and explicitly lack hourly coverage.
 These dimensions do not change token totals or metered response count semantics.
+
+## Additive recent activity (parser p2b-9)
+
+Full snapshots may include `recent_activity`: `as_of` (Unix seconds),
+`window_seconds` (600), `coverage_complete`, `unlocated_records`, `future_records`,
+`unsupported_sources`, and `buckets`. Each bucket contains `timestamp`, a
+controlled `agent`, scalar `tokens`, and `messages {known, complete}`. Bucket
+identity is `(timestamp, agent)`; duplicates and out-of-window buckets are
+invalid. Their token sum cannot exceed historical snapshot totals. Absence
+means no recent-rate support. See [recent activity](recent-activity.md).

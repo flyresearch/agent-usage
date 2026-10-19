@@ -348,6 +348,18 @@ fn collect_inner(
             if config.sources[i].adapter == "openclaw-codex-jsonl" {
                 attributed.backend = Some("codex".into());
             }
+            if let Some(time) = attributed.event_time {
+                let instant = chrono::DateTime::from_timestamp(time, 0)
+                    .ok_or(Error("invalid_cache_projection"))?;
+                let local =
+                    instant.with_timezone(&chrono::FixedOffset::east_opt(8 * 3600).unwrap());
+                if attributed.day.as_deref() != Some(local.format("%Y-%m-%d").to_string().as_str())
+                    || attributed.hour
+                        != crate::parser::event_hour(&serde_json::json!(local.to_rfc3339()))
+                {
+                    return Err(Error("invalid_cache_projection"));
+                }
+            }
             let r = &attributed;
             if config.sources[i].adapter == "claude-jsonl" {
                 let message = r
@@ -362,6 +374,9 @@ fn collect_inner(
             }
             let rk = (i, r.key.clone());
             if let Some(old) = records.get_mut(&rk) {
+                if old.event_time != r.event_time {
+                    old.event_time = None;
+                }
                 if config.sources[i].adapter == "claude-jsonl" {
                     parser::merge_claude(old, r.clone(), &mut status.coverage)?;
                 } else if old.messages != r.messages
@@ -393,6 +408,7 @@ fn collect_inner(
         }
     }
     *active_source = None;
+    let activity = crate::activity::project(config, &records, &statuses, Utc::now().timestamp())?;
     type GroupKey = (
         usize,
         String,
@@ -547,6 +563,7 @@ fn collect_inner(
             && c.unallocated_tokens == 0
     });
     let snapshot = Snapshot {
+        recent_activity: Some(activity),
         schema_version: 1,
         collector_version: env!("CARGO_PKG_VERSION").into(),
         parser_version: PARSER_VERSION.into(),

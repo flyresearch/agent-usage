@@ -183,6 +183,7 @@ pub fn parse_file(
             let (day, bounds, basis) = interval(first, last, &mut out.coverage)?;
             out.records.push(Record {
                 hour: None,
+                event_time: None,
                 execution_role: None,
                 messages,
                 key: hash(&serde_json::to_vec(&("hermes-model", file_key, sid, ordinal)).unwrap()),
@@ -238,6 +239,7 @@ pub fn parse_file(
             // it does not prove which model produced an uncovered residual.
             out.records.push(Record {
                 hour: None,
+                event_time: None,
                 execution_role: None,
                 messages: MessageCount::default(),
                 key: hash(&serde_json::to_vec(&("hermes-residual", file_key, id)).unwrap()),

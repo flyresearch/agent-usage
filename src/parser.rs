@@ -12,6 +12,8 @@ use std::io::BufRead;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Record {
     #[serde(default)]
+    pub event_time: Option<i64>,
+    #[serde(default)]
     pub messages: MessageCount,
     pub key: String,
     pub model: String,
@@ -84,6 +86,21 @@ pub(crate) fn event_hour(value: &Value) -> Option<u8> {
         v.with_timezone(&FixedOffset::east_opt(8 * 3600).unwrap())
             .hour() as u8
     })
+}
+pub(crate) fn event_second(value: &Value) -> Option<i64> {
+    if let Some(text) = value.as_str() {
+        DateTime::parse_from_rfc3339(text)
+            .ok()
+            .map(|t| t.timestamp())
+    } else {
+        value
+            .as_i64()
+            .and_then(DateTime::from_timestamp_millis)
+            .map(|t| t.timestamp())
+    }
+}
+fn string_event_second(value: &Value) -> Option<i64> {
+    value.as_str().and_then(|_| event_second(value))
 }
 fn string_event_hour(value: &Value) -> Option<u8> {
     value.as_str().and_then(|_| event_hour(value))
@@ -540,6 +557,7 @@ pub fn parse(
                 claude_usage_stage: 0,
                 day: day(&v, &mut out.coverage),
                 hour: string_event_hour(&v["timestamp"]),
+                event_time: string_event_second(&v["timestamp"]),
                 execution_role: execution_role.clone(),
                 tokens,
                 interval: None,
@@ -655,6 +673,7 @@ pub fn parse(
                 },
                 day: day(&v, &mut out.coverage),
                 hour: string_event_hour(&v["timestamp"]),
+                event_time: string_event_second(&v["timestamp"]),
                 execution_role: claude_role(&v),
                 tokens,
                 interval: None,
@@ -686,6 +705,10 @@ pub fn parse(
 pub fn merge_claude(old: &mut Record, mut new: Record, coverage: &mut Coverage) -> Result<()> {
     if old.model_key != new.model_key {
         return Err(Error("conflicting_message_model"));
+    }
+    if old.event_time != new.event_time {
+        old.event_time = None;
+        new.event_time = None;
     }
     if old.execution_role != new.execution_role {
         old.execution_role = None;

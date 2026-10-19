@@ -51,7 +51,7 @@ cargo fmt --check
 
 Tests use synthetic data and exercise the actual parser, collector, and CLI.
 
-[Setup](docs/minimal-usage.md) · [Protocol](docs/protocol-v1.md) · [Data contract](docs/data-contract.md) · [agy SQLite](docs/agy-adapter.md) · [Hermes SQLite](docs/hermes-adapter.md) · [OpenClaw](docs/openclaw-adapter.md) · [WorkBuddy](docs/workbuddy-adapter.md) · [Validation](docs/minimal-validation.md) · [Roadmap](docs/development-plan.md) · [Contributor handoff](docs/handoff.md)
+[Setup](docs/minimal-usage.md) · [Protocol](docs/protocol-v1.md) · [Data contract](docs/data-contract.md) · [agy SQLite](docs/agy-adapter.md) · [Hermes SQLite](docs/hermes-adapter.md) · [OpenClaw](docs/openclaw-adapter.md) · [WorkBuddy](docs/workbuddy-adapter.md) · [Recent activity](docs/recent-activity.md) · [Validation](docs/minimal-validation.md) · [Roadmap](docs/development-plan.md) · [Contributor handoff](docs/handoff.md)
 
 ## License and provenance
 

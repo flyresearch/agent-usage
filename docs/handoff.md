@@ -4,7 +4,7 @@ Start with AGENTS.md, then [setup](minimal-usage.md), [validation](minimal-valid
 
 ## Current baseline
 
-Package 0.1.0 is experimental; parser version p2b-8, snapshot schema v1, and app-owned fleet store schema 2. The implemented surface includes Codex/Claude/WorkBuddy JSONL and agy/Hermes/OpenClaw SQLite collection, local/SSH fleet orchestration, atomic last-good aggregation, and a separate native macOS UI fork. Source directories and host configurations are explicit.
+Package 0.1.0 is experimental; parser version p2b-9, snapshot schema v1, and app-owned fleet store schema 2. The implemented surface includes Codex/Claude/WorkBuddy JSONL and agy/Hermes/OpenClaw SQLite collection, local/SSH fleet orchestration, atomic last-good aggregation, and a separate native macOS UI fork. Source directories and host configurations are explicit.
 
 Tests use synthetic data and exercise the actual implementation. Native qualification covers macOS arm64/x86_64 and Windows x86_64 GNU collectors; the native UI is a macOS application. Hosted Windows MSVC CI has not been executed for these unpushed changes. A fresh checkout has no private config, cache, snapshot, model mapping, or ready-to-run source directories; follow the setup guide.
 
@@ -175,3 +175,11 @@ must report unallocated-hour tokens, and Agents analysis must retain unknown
 attribution. Older deployed collectors remain readable with unknown dimensions.
 The native fork enables Hourly, Stats and Agents with offline estimates and
 scoped filtering; these views do not provide subscription quotas or live rates.
+
+## Recent activity and optional online quota
+
+Parser p2b-9 adds the bounded [recent activity report](recent-activity.md).
+Historical collection remains local-only. The native UI now has separate opt-in
+live-metrics and Codex app-server quota settings. The latter is an independent
+UI bridge; it is not a collector/provider-login dependency. Unsupported quota
+providers and old collectors must remain unavailable/partial, never zero.

@@ -107,6 +107,9 @@ pub fn summary(snapshot: &Snapshot) -> Result<Value> {
     }) {
         return Err(Error("invalid_snapshot"));
     }
+    if let Some(activity) = &snapshot.recent_activity {
+        crate::activity::validate(activity, snapshot)?;
+    }
     let mut agents: BTreeMap<String, Tokens> = BTreeMap::new();
     let mut models: BTreeMap<String, Tokens> = BTreeMap::new();
     let mut days = std::collections::BTreeSet::new();

@@ -1,7 +1,8 @@
 //! Response-level Codex records (source contract pinned in docs/codex-response-usage.md).
 //! No provider SDK or upstream implementation is linked/copied.
 use super::{
-    canonical, codex_usage, day, model, number, string_event_hour, unknown_fields, Parsed, Record,
+    canonical, codex_usage, day, model, number, string_event_hour, string_event_second,
+    unknown_fields, Parsed, Record,
 };
 use crate::protocol::*;
 use serde_json::Value;
@@ -106,6 +107,9 @@ impl ResponseUsage {
                 return Err(Error("conflicting_response_replay"));
             }
             let previous = &mut records[old.1];
+            if previous.event_time != string_event_second(&v["timestamp"]) {
+                previous.event_time = None;
+            }
             let next_day = day(v, cov);
             if previous.day != next_day {
                 previous.day = None;
@@ -139,6 +143,7 @@ impl ResponseUsage {
             claude_usage_stage: 0,
             day: day(v, cov),
             hour: string_event_hour(&v["timestamp"]),
+            event_time: string_event_second(&v["timestamp"]),
             execution_role: context.execution_role.map(str::to_owned),
             tokens: canonical(usage)?,
             interval: None,

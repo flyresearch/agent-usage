@@ -210,6 +210,7 @@ pub fn parse_file(
                 claude_usage_stage: 0,
                 day: day(&m["timestamp"], &mut out.coverage),
                 hour: crate::parser::event_hour(&m["timestamp"]),
+                event_time: crate::parser::event_second(&m["timestamp"]),
                 execution_role: None,
                 tokens: t,
                 interval: None,
@@ -220,7 +221,10 @@ pub fn parse_file(
                     .as_str()
                     .map(|v| format!("provider-{}", &hash(v.as_bytes())[..12])),
             };
-            if let Some(old) = seen.get(&key) {
+            if let Some(old) = seen.get_mut(&key) {
+                if old.event_time != record.event_time {
+                    old.event_time = None;
+                }
                 if old.tokens != record.tokens
                     || old.day != record.day
                     || old.hour != record.hour

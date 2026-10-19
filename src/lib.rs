@@ -1,3 +1,4 @@
+pub mod activity;
 pub mod collector;
 pub mod fleet;
 pub mod locking;

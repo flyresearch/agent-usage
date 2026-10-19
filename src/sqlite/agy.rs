@@ -218,6 +218,7 @@ pub fn parse_file(
                 cache_write_uncertain: false,
                 claude_usage_stage: 0,
                 day,
+                event_time: time.map(|v| v.div_euclid(1000)),
                 hour: time.and_then(|t| crate::parser::event_hour(&serde_json::json!(t))),
                 execution_role: None,
                 tokens,
@@ -227,7 +228,10 @@ pub fn parse_file(
                 backend: None,
                 provider: None,
             };
-            if let Some(old) = records.get(&key) {
+            if let Some(old) = records.get_mut(&key) {
+                if old.event_time != record.event_time {
+                    old.event_time = None;
+                }
                 if old.tokens != record.tokens
                     || old.day != record.day
                     || old.hour != record.hour

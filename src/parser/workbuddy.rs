@@ -167,6 +167,7 @@ pub(super) fn parse(
             claude_usage_stage: 0,
             day: date,
             hour: event_hour(&v["timestamp"]),
+            event_time: event_second(&v["timestamp"]),
             execution_role: None,
             tokens,
             interval: None,
@@ -176,8 +177,11 @@ pub(super) fn parse(
             provider: None,
         };
         // Dedup across files is also enforced by collector, including warm hits.
-        if let Some(old) = seen.get(&key) {
-            let old: &Record = old;
+        if let Some(old) = seen.get_mut(&key) {
+            let old: &mut Record = old;
+            if old.event_time != record.event_time {
+                old.event_time = None;
+            }
             if old.tokens != record.tokens
                 || old.day != record.day
                 || old.hour != record.hour
