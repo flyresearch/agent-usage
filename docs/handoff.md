@@ -4,7 +4,7 @@ Start with AGENTS.md, then [setup](minimal-usage.md), [validation](minimal-valid
 
 ## Current baseline
 
-Package 0.1.0 is experimental; parser version p2b-5, snapshot schema v1, and app-owned fleet store schema 2. The implemented surface includes Codex/Claude JSONL and agy/Hermes/OpenClaw SQLite collection, local/SSH fleet orchestration, atomic last-good aggregation, and a separate native macOS UI fork. Source directories and host configurations are explicit.
+Package 0.1.0 is experimental; parser version p2b-7, snapshot schema v1, and app-owned fleet store schema 2. The implemented surface includes Codex/Claude/WorkBuddy JSONL and agy/Hermes/OpenClaw SQLite collection, local/SSH fleet orchestration, atomic last-good aggregation, and a separate native macOS UI fork. Source directories and host configurations are explicit.
 
 Tests use synthetic data and exercise the actual implementation. Native qualification covers macOS arm64/x86_64 and Windows x86_64 GNU collectors; the native UI is a macOS application. Hosted Windows MSVC CI has not been executed for these unpushed changes. A fresh checkout has no private config, cache, snapshot, model mapping, or ready-to-run source directories; follow the setup guide.
 
@@ -160,3 +160,9 @@ show consistent metered counts and estimates. The app-owned collector rebinding
 regression is implemented and tested; custom CLI paths remain untouched. Swift
 core checks now total 23; original-target projection checks remain 9. Runtime
 config and rendered private figures are not stored in Git.
+
+## WorkBuddy source checkpoint
+
+Parser p2b-7 adds the bounded [WorkBuddy JSONL adapter](workbuddy-adapter.md).
+The native UI consumer accepts the new agent label. Private source configuration
+and installed/remote collectors are not changed by this source checkpoint.

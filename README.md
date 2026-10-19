@@ -1,6 +1,6 @@
 # agent-usage
 
-**Experimental local usage collector for Codex, Claude Code, Antigravity CLI (agy), Hermes, and OpenClaw.**
+**Experimental local usage collector for Codex, Claude Code, Antigravity CLI (agy), Hermes, OpenClaw, and WorkBuddy.**
 
 Read explicitly configured JSONL directories or supported SQLite sources on the source machine, normalize token usage, and export versioned JSON snapshots. Summaries group known usage by agent and model; snapshots also retain daily buckets. Collection does not access login credentials, refresh tokens, contact model providers, or upload session contents.
 
@@ -51,7 +51,7 @@ cargo fmt --check
 
 Tests use synthetic data and exercise the actual parser, collector, and CLI.
 
-[Setup](docs/minimal-usage.md) · [Protocol](docs/protocol-v1.md) · [Data contract](docs/data-contract.md) · [agy SQLite](docs/agy-adapter.md) · [Hermes SQLite](docs/hermes-adapter.md) · [OpenClaw](docs/openclaw-adapter.md) · [Validation](docs/minimal-validation.md) · [Roadmap](docs/development-plan.md) · [Contributor handoff](docs/handoff.md)
+[Setup](docs/minimal-usage.md) · [Protocol](docs/protocol-v1.md) · [Data contract](docs/data-contract.md) · [agy SQLite](docs/agy-adapter.md) · [Hermes SQLite](docs/hermes-adapter.md) · [OpenClaw](docs/openclaw-adapter.md) · [WorkBuddy](docs/workbuddy-adapter.md) · [Validation](docs/minimal-validation.md) · [Roadmap](docs/development-plan.md) · [Contributor handoff](docs/handoff.md)
 
 ## License and provenance
 

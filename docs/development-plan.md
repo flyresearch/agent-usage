@@ -1,6 +1,6 @@
 # 开发计划
 
-当前为 experimental 单机最小版本，支持 Codex/Claude JSONL、agy/Hermes/OpenClaw SQLite 及专属 OpenClaw Codex 来源。参见 [使用说明](minimal-usage.md) 与 [验证状态](minimal-validation.md)。已实现按需多机汇总；历史 coverage 缺口和完整试运行验收仍待完成。
+当前为 experimental 单机最小版本，支持 Codex/Claude/WorkBuddy JSONL、agy/Hermes/OpenClaw SQLite 及专属 OpenClaw Codex 来源。参见 [使用说明](minimal-usage.md) 与 [验证状态](minimal-validation.md)。已实现按需多机汇总；历史 coverage 缺口和完整试运行验收仍待完成。
 
 ## 仓库与依赖
 
@@ -29,3 +29,5 @@
 - 凭据读取和 provider 请求路径不存在；导出及诊断只含允许字段。
 
 费用首版可省略或标 unknown；若加入，只是带价格版本的估算。永久历史账本、跨机去重、在线额度、远端常驻服务均延期。原始日志删除后成功重扫可能降低历史总量，必须说明。
+
+WorkBuddy 首版范围与覆盖限制见 [adapter 说明](workbuddy-adapter.md)。

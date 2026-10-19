@@ -124,7 +124,8 @@ pub fn summary(snapshot: &Snapshot) -> Result<Value> {
         }
     }
     for row in &snapshot.rows {
-        if !["codex", "claude", "agy", "hermes", "openclaw"].contains(&row.agent.as_str())
+        if !["codex", "claude", "agy", "hermes", "openclaw", "workbuddy"]
+            .contains(&row.agent.as_str())
             || !label(&row.model)
             || !snapshot
                 .sources

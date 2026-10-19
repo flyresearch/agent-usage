@@ -1,6 +1,7 @@
 //! Strict local usage projection. Count-selection rules reviewed against the
 //! MIT tokscale-core pin in docs/dependency-review.md; no upstream IO/init code.
 mod codex_records;
+mod workbuddy;
 use crate::protocol::*;
 use chrono::{DateTime, FixedOffset};
 use serde::{Deserialize, Serialize};
@@ -159,6 +160,9 @@ pub fn parse(
     aliases: &BTreeMap<String, String>,
     file_key: &str,
 ) -> Result<Parsed> {
+    if adapter == "workbuddy-jsonl" {
+        return workbuddy::parse(reader, aliases);
+    }
     if !["codex-jsonl", "claude-jsonl"].contains(&adapter) {
         return Err(Error("unsupported_adapter"));
     }

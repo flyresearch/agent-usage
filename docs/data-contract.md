@@ -12,6 +12,8 @@
 - **Hermes**：以 model usage 表为主体，含辅助调用；sessions 仅补主调用未覆盖残差，负残差须诊断。output 包含 reasoning，input 不含 cache。跨日聚合无法重建日分配时保留 interval 和 unallocated。
 - **OpenClaw**：支持 SQLite 普通 JSON 和 Zstd。专属 Codex HOME 是 Codex harness 主来源；主库/runtime 对应调用仅核对。明确的非 Codex 来源独立计入；无法确认的历史来源单列 unclassified。归属依赖可靠 linkage/明确配置，不凭模型名或当前窗口标签判断历史。
 
+- **WorkBuddy**：以 `providerData.usage` 为每次调用的主来源，input 包含缓存读取、output 包含 reasoning；按 `messageId` 去重，不按多调用共享的 trace/轮次去重。非零缓存写入暂不支持，缺失语义保持显式覆盖限制。详见 [WorkBuddy adapter](workbuddy-adapter.md)。
+
 ## 快照与完整性
 
 信封包含 schema/collector/parser 版本、host_id、配置指纹、生成时间、时区和 complete。聚合按 agent/model/day/受控来源标签；统一 Asia/Singapore，缺失或无法精确分配的日期使用未分摊桶并给 time_basis。

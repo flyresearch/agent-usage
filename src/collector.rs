@@ -71,6 +71,7 @@ fn validate(config: &Config, active_source: &mut Option<String>) -> Result<Vec<(
         if ![
             "codex-jsonl",
             "claude-jsonl",
+            "workbuddy-jsonl",
             "agy-sqlite",
             "hermes-sqlite",
             "openclaw-sqlite",
@@ -498,6 +499,7 @@ fn collect_inner(
                     agent: match config.sources[i].adapter.as_str() {
                         "codex-jsonl" => "codex",
                         "claude-jsonl" => "claude",
+                        "workbuddy-jsonl" => "workbuddy",
                         "agy-sqlite" => "agy",
                         "hermes-sqlite" => "hermes",
                         "openclaw-sqlite" | "openclaw-codex-jsonl" => "openclaw",
