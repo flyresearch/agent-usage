@@ -1,6 +1,18 @@
 # 开发计划
 
-当前为 experimental 单机最小版本，支持 Codex/Claude/WorkBuddy JSONL、agy/Hermes/OpenClaw SQLite 及专属 OpenClaw Codex 来源。参见 [使用说明](minimal-usage.md) 与 [验证状态](minimal-validation.md)。已实现按需多机汇总；历史 coverage 缺口和完整试运行验收仍待完成。
+当前仍为 experimental，但交付目标已于 2026-10-20 调整为**完整替代 Syrtis**：保留其合理用户能力，不以当前六类来源或已启用页面作为最终范围。collector 已支持 Codex/Claude/WorkBuddy JSONL、agy/Hermes/OpenClaw SQLite，四台已配置机器统一为 p2b-9；独立 macOS UI 已接入多机统计和部分原生额度能力。尚不能据此声称替代完成。
+
+完整能力台账、实施顺序与切换验收见 UI 仓库的[完整替代计划](https://github.com/flyresearch/agent-usage-ui/blob/feat/offline-agent-usage/docs/knowledge/offline-agent-usage.md#full-syrtis-replacement-program)。首个固定对照基线为 Syrtis v2.9.0。原有“首个可用版本”计划是历史里程碑，不再是最终完成标准。
+
+## 当前实施顺序
+
+1. 恢复完整日常体验：通用设置、登录启动、语言、刷新控制、独立 Agent 菜单栏项目、显示与无障碍设置。
+2. 补齐账号和统计语义：明确账号范围、订阅归属、窗口内本地用量、具名 Agent/会话明细及可靠的跨重启历史。
+3. 逐项补齐上游来源与额度 provider：包括 DSH；每项分别标记实现、fixture 验证和实机资格，不把图标注册当成 parser 支持。
+4. 完成可选集成、迁移、诊断、独立签名发布与更新回滚流程。
+5. 对当前构建进行完整桌面交互和至少七天四机试运行验收；合理功能没有完成或明确例外前，不宣称完全替代。
+
+采集器继续保持无凭据、无 provider 网络请求；额度与可选联网集成由独立 UI 边界承担。不能以安全边界为由静默删掉用户能力，应提供安全的等价实现，无法实现的保持明确待办。
 
 ## 仓库与依赖
 
@@ -8,7 +20,7 @@
 
 优先评估固定 tokscale-core revision `fcb85923e5544488f98001cfa390740d0009b9da` 的本地 parser。该版本来自 Syrtis v2.7.0 调查基线，不代表可以原样满足全部来源。已完成许可证、依赖和 parser 接口审查。本轮采用窄范围规则适配，未引入整个引擎；原因与行为差异见 [依赖评估](dependency-review.md)。collector 已有 macOS arm64/x86_64 和 Windows x86_64 GNU 原生验证；UI 复用独立 Syrtis fork 的原版 target。
 
-## 分阶段交付
+## 历史分阶段交付（首个可用版本）
 
 1. **P2a：本地最小闭环。** 初始化 Rust crate，明确配置与快照 schema，实现多目录 Codex/Claude adapter、累计差分和流式更新处理。测试实际 parser，随后在开发机器只读对拍统计字段。未知 total carry、缺时间与异常字段要进入 coverage。
 2. **P2b：补足来源。** agy SQLite/protobuf、Hermes 主/辅助调用和跨日未分摊、OpenClaw SQLite/Zstd 与 Codex 后端归属。补同调用多存储的人工 fixture；不以模型名决定后端。逐平台验证 macOS arm64/x86_64、Windows x86_64。
@@ -28,6 +40,6 @@
 - 暖扫描避免反复全量读取大日志，冷/暖性能以实测记录。
 - 凭据读取和 provider 请求路径不存在；导出及诊断只含允许字段。
 
-费用首版可省略或标 unknown；若加入，只是带价格版本的估算。永久历史账本、跨机去重、在线额度、远端常驻服务均延期。原始日志删除后成功重扫可能降低历史总量，必须说明。
+原“首版”允许延期的能力不自动豁免完整替代验收。目录价格只提供带版本的估算，不伪装成账单。在线额度已由独立 UI 桥接部分实现，剩余额度与账号功能继续按能力台账推进。跨机去重、永久历史账本、远端常驻服务须按真实语义和必要性单独设计，不能为对齐界面而破坏既定数据契约。原始日志删除后成功重扫可能降低历史总量，必须说明。
 
 WorkBuddy 首版范围与覆盖限制见 [adapter 说明](workbuddy-adapter.md)。

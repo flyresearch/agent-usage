@@ -1,5 +1,10 @@
 # First usable release — completion ledger
 
+> Historical milestone, not the current product completion gate. As of 2026-10-20,
+> the target is complete Syrtis replacement; see [development-plan.md](development-plan.md)
+> and its linked UI capability ledger. Older checkpoint versions/test counts below
+> are historical evidence and must not be presented as current qualification.
+
 Goal: deliver the first usable version, including the native UI. The existing
 Codex/Claude CLI alone does not satisfy this goal.
 
