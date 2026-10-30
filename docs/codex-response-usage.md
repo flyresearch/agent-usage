@@ -20,7 +20,7 @@
 2. response 身份由 thread_id + response_id 组成，持久化只保留哈希；相同数值的不同 response 仍分别计入。缺身份、重复身份数据矛盾或线程冲突均失败。
 3. token_count 只作镜像核对。compacted 之后的分项零、total 非零 last 可作为上下文估算，不作为新增用量。无法匹配的非零用量或缺少必要字段明确失败。
 4. 已完成 response 的记录可先于镜像写入，不能因为镜像尚未出现就丢弃该 response。未完成 JSONL 末行仍延期。
-5. 模型仅在 record.turn_id 与当前 turn_context 匹配时采用上下文模型，否则 unknown；压缩涉及的最新 response 不假定使用会话模型。缺时间仍未分摊。
+5. 模型仅在 record.turn_id 与当前 turn_context 匹配时采用上下文模型，否则 unknown。压缩涉及的最新 response 不假定使用会话模型：仅当 compacted 的 compaction_response_id 与该 response 一致，且 resume_metadata.previous_turn_settings.model 经 model_aliases 映射时采用该模型（p2b-10），否则 unknown。缺时间仍未分摊。
 6. 同 source 的相同 thread 同时存在 legacy-only 和 response 格式文件时，无法证明跨格式去重则失败。普通 response 文件复制按身份去重；单文件有序升级前缀允许。
 7. cache_read 和 cache_write 均为 input 子集，非缓存 input 扣除二者，子集和超出父计数失败。reasoning 为 output 子集。见 [官方 cache-write 测试](https://github.com/openai/codex/blob/092d3acd6bec3e3a14bdc7e7a2810ab628ab759d/codex-rs/codex-api/src/sse/responses.rs#L849)。
 8. response reported total 不等于已知 input+output 时，明确报告 unclassified_response_total；不把差额补入可信分项。

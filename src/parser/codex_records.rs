@@ -21,21 +21,46 @@ pub(super) struct ResponseUsage {
     signatures: BTreeMap<String, (String, usize)>,
     compacted: bool,
     last_record: Option<usize>,
+    last_response: Option<String>,
 }
 impl ResponseUsage {
     pub fn active(&self) -> bool {
         self.last.is_some()
     }
-    pub fn compacted(&mut self, records: &mut [Record], cov: &mut Coverage) {
+    pub fn compacted(
+        &mut self,
+        p: &Value,
+        aliases: &BTreeMap<String, String>,
+        records: &mut [Record],
+        cov: &mut Coverage,
+    ) {
         self.compacted = true;
         // Compaction may use a different model than the conversation context.
-        // The response usage record has no model, so do not claim that attribution.
+        // Attribute it only when the compacted event names the latest response
+        // and records the model of the turn that ran it.
+        let raw = p["compaction_response_id"]
+            .as_str()
+            .filter(|id| self.last_response.as_deref() == Some(hash(id.as_bytes()).as_str()))
+            .and_then(|_| p["resume_metadata"]["previous_turn_settings"]["model"].as_str())
+            .filter(|s| !s.is_empty());
         if let Some(r) = self.last_record.and_then(|i| records.get_mut(i)) {
-            if r.model != "unknown" {
-                cov.unknown_model_records += 1;
+            let was_unknown = r.model == "unknown";
+            match raw.and_then(|m| aliases.get(m)) {
+                Some(label) => {
+                    if was_unknown {
+                        cov.unknown_model_records = cov.unknown_model_records.saturating_sub(1);
+                    }
+                    r.model = label.clone();
+                    r.model_key = hash(raw.unwrap_or("").as_bytes());
+                }
+                None => {
+                    if !was_unknown {
+                        cov.unknown_model_records += 1;
+                    }
+                    r.model = "unknown".into();
+                    r.model_key = hash(b"");
+                }
             }
-            r.model = "unknown".into();
-            r.model_key = hash(b"");
         }
     }
     pub fn record(&mut self, v: &Value, context: Context<'_>, out: &mut Parsed) -> Result<()> {
@@ -123,6 +148,7 @@ impl ResponseUsage {
             }
             self.last = Some(usage);
             self.last_record = Some(old.1);
+            self.last_response = Some(hash(response_id.as_bytes()));
             return Ok(());
         }
         self.signatures
@@ -153,6 +179,7 @@ impl ResponseUsage {
             provider: None,
         });
         self.last_record = Some(records.len() - 1);
+        self.last_response = Some(hash(response_id.as_bytes()));
         Ok(())
     }
     pub fn mirror(&self, info: &Value, cov: &mut Coverage) -> Result<()> {

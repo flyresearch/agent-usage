@@ -85,6 +85,39 @@ fn compaction_usage_is_counted_context_estimate_is_not() {
     assert_eq!(p.records[1].model, "unknown");
     assert_eq!(p.records[2].model, "test-model");
 }
+fn compacted(id: &str, model: &str) -> Value {
+    json!({"type":"compacted","payload":{"compaction_response_id":id,"resume_metadata":{"previous_turn_settings":{"model":model}}}})
+}
+#[test]
+fn compaction_model_requires_matching_response_evidence() {
+    let p = parse(&[
+        context(),
+        record("compact", 30, 5),
+        compacted("compact", "synthetic-model"),
+    ])
+    .unwrap();
+    assert_eq!(p.records[0].model, "test-model");
+    assert_eq!(p.coverage.unknown_model_records, 0);
+    for event in [
+        compacted("other", "synthetic-model"),
+        compacted("compact", "unaliased-model"),
+        json!({"type":"compacted","payload":{"compaction_response_id":"compact"}}),
+    ] {
+        let p = parse(&[context(), record("compact", 30, 5), event]).unwrap();
+        assert_eq!(p.records[0].model, "unknown");
+        assert_eq!(p.coverage.unknown_model_records, 1);
+    }
+}
+#[test]
+fn compaction_evidence_attributes_record_without_turn_context() {
+    let p = parse(&[
+        record("compact", 30, 5),
+        compacted("compact", "synthetic-model"),
+    ])
+    .unwrap();
+    assert_eq!(p.records[0].model, "test-model");
+    assert_eq!(p.coverage.unknown_model_records, 0);
+}
 #[test]
 fn context_estimate_requires_compaction_evidence() {
     let mut estimate = count(0, 0);

@@ -199,3 +199,10 @@ reports on all hosts. The native UI's actual-report projection check passed for
 hourly/role totals and coverage reporting. This closes the old-collector protocol
 gap, not historical attribution gaps: missing timestamps/roles, unsupported recent
 Hermes interval activity and other source coverage limits remain explicitly partial.
+
+## Compaction model attribution
+
+Parser p2b-10 attributes a Codex (and OpenClaw Codex backend) compaction response
+to the model recorded in the compacted event's previous turn settings, only when
+its compaction response ID matches the latest response record and the model has
+a configured alias. Missing or mismatched evidence still yields unknown.

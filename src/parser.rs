@@ -399,7 +399,7 @@ pub fn parse(
                 continue;
             }
             if kind == "compacted" && response_usage.active() {
-                response_usage.compacted(&mut out.records, &mut out.coverage);
+                response_usage.compacted(p, aliases, &mut out.records, &mut out.coverage);
             }
             if kind != "event_msg" || p["type"] != "token_count" {
                 if has_usage_envelope(&v) {
