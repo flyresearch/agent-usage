@@ -119,6 +119,27 @@ fn compaction_evidence_attributes_record_without_turn_context() {
     assert_eq!(p.coverage.unknown_model_records, 0);
 }
 #[test]
+fn compaction_model_falls_back_to_reemitted_same_turn_context() {
+    let bare = json!({"type":"compacted","payload":{"compaction_response_id":"compact"}});
+    let other_turn =
+        json!({"type":"turn_context","payload":{"turn_id":"other-turn","model":"synthetic-model"}});
+    let p = parse(&[record("compact", 30, 5), bare.clone(), context()]).unwrap();
+    assert_eq!(p.records[0].model, "test-model");
+    assert_eq!(p.coverage.unknown_model_records, 0);
+    for rows in [
+        vec![record("compact", 30, 5), bare.clone(), other_turn],
+        vec![
+            record("compact", 30, 5),
+            bare.clone(),
+            record("next", 1, 1),
+            context(),
+        ],
+    ] {
+        let p = parse(&rows).unwrap();
+        assert_eq!(p.records[0].model, "unknown");
+    }
+}
+#[test]
 fn context_estimate_requires_compaction_evidence() {
     let mut estimate = count(0, 0);
     estimate["payload"]["info"]["last_token_usage"]["total_tokens"] = json!(500);

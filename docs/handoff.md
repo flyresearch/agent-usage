@@ -202,7 +202,8 @@ Hermes interval activity and other source coverage limits remain explicitly part
 
 ## Compaction model attribution
 
-Parser p2b-10 attributes a Codex (and OpenClaw Codex backend) compaction response
-to the model recorded in the compacted event's previous turn settings, only when
-its compaction response ID matches the latest response record and the model has
-a configured alias. Missing or mismatched evidence still yields unknown.
+Parser p2b-11 attributes a Codex (and OpenClaw Codex backend) compaction response
+only when the compacted event's compaction response ID matches the latest
+response record. The model comes from the event's previous turn settings or,
+when absent, from the turn context re-emitted next for the same turn. The model
+must have a configured alias. Missing or mismatched evidence still yields unknown.

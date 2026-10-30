@@ -360,6 +360,13 @@ pub fn parse(
             if kind == "turn_context" {
                 current_model = codex_model(p).map(str::to_owned);
                 context_turn = p["turn_id"].as_str().map(|s| hash(s.as_bytes()));
+                response_usage.turn_context(
+                    context_turn.as_deref(),
+                    current_model.as_deref(),
+                    aliases,
+                    &mut out.records,
+                    &mut out.coverage,
+                );
                 if fork_owner.is_some() && !response_usage.active() {
                     let own = match (
                         fork_creation_ms,

@@ -21,7 +21,34 @@ pub(super) struct ResponseUsage {
     signatures: BTreeMap<String, (String, usize)>,
     compacted: bool,
     last_record: Option<usize>,
-    last_response: Option<String>,
+    // Hashed (response, turn) identity of last_record.
+    last_identity: Option<(String, String)>,
+    // Compaction record awaiting the turn context Codex re-emits for its turn.
+    pending: Option<(usize, String)>,
+}
+fn attribute(
+    r: &mut Record,
+    raw: Option<&str>,
+    aliases: &BTreeMap<String, String>,
+    cov: &mut Coverage,
+) {
+    let was_unknown = r.model == "unknown";
+    match raw.and_then(|m| aliases.get(m)) {
+        Some(label) => {
+            if was_unknown {
+                cov.unknown_model_records = cov.unknown_model_records.saturating_sub(1);
+            }
+            r.model = label.clone();
+            r.model_key = hash(raw.unwrap_or("").as_bytes());
+        }
+        None => {
+            if !was_unknown {
+                cov.unknown_model_records += 1;
+            }
+            r.model = "unknown".into();
+            r.model_key = hash(b"");
+        }
+    }
 }
 impl ResponseUsage {
     pub fn active(&self) -> bool {
@@ -35,31 +62,41 @@ impl ResponseUsage {
         cov: &mut Coverage,
     ) {
         self.compacted = true;
+        self.pending = None;
         // Compaction may use a different model than the conversation context.
-        // Attribute it only when the compacted event names the latest response
-        // and records the model of the turn that ran it.
-        let raw = p["compaction_response_id"]
+        // Attribute it only when the compacted event names the latest response;
+        // the model comes from the recorded previous turn settings, otherwise
+        // from the turn context re-emitted for that same turn (see turn_context).
+        let turn = p["compaction_response_id"]
             .as_str()
-            .filter(|id| self.last_response.as_deref() == Some(hash(id.as_bytes()).as_str()))
+            .and_then(|id| {
+                self.last_identity
+                    .as_ref()
+                    .filter(|(response, _)| *response == hash(id.as_bytes()))
+            })
+            .map(|(_, turn)| turn.clone());
+        let raw = turn
+            .as_ref()
             .and_then(|_| p["resume_metadata"]["previous_turn_settings"]["model"].as_str())
             .filter(|s| !s.is_empty());
-        if let Some(r) = self.last_record.and_then(|i| records.get_mut(i)) {
-            let was_unknown = r.model == "unknown";
-            match raw.and_then(|m| aliases.get(m)) {
-                Some(label) => {
-                    if was_unknown {
-                        cov.unknown_model_records = cov.unknown_model_records.saturating_sub(1);
-                    }
-                    r.model = label.clone();
-                    r.model_key = hash(raw.unwrap_or("").as_bytes());
-                }
-                None => {
-                    if !was_unknown {
-                        cov.unknown_model_records += 1;
-                    }
-                    r.model = "unknown".into();
-                    r.model_key = hash(b"");
-                }
+        if let Some(i) = self.last_record.filter(|i| *i < records.len()) {
+            attribute(&mut records[i], raw, aliases, cov);
+            if raw.is_none() {
+                self.pending = turn.map(|t| (i, t));
+            }
+        }
+    }
+    pub fn turn_context(
+        &mut self,
+        turn: Option<&str>,
+        raw: Option<&str>,
+        aliases: &BTreeMap<String, String>,
+        records: &mut [Record],
+        cov: &mut Coverage,
+    ) {
+        if let Some((i, expected)) = self.pending.take() {
+            if turn == Some(expected.as_str()) && i < records.len() {
+                attribute(&mut records[i], raw, aliases, cov);
             }
         }
     }
@@ -148,7 +185,8 @@ impl ResponseUsage {
             }
             self.last = Some(usage);
             self.last_record = Some(old.1);
-            self.last_response = Some(hash(response_id.as_bytes()));
+            self.last_identity = Some((hash(response_id.as_bytes()), hash(turn_id.as_bytes())));
+            self.pending = None;
             return Ok(());
         }
         self.signatures
@@ -179,7 +217,8 @@ impl ResponseUsage {
             provider: None,
         });
         self.last_record = Some(records.len() - 1);
-        self.last_response = Some(hash(response_id.as_bytes()));
+        self.last_identity = Some((hash(response_id.as_bytes()), hash(turn_id.as_bytes())));
+        self.pending = None;
         Ok(())
     }
     pub fn mirror(&self, info: &Value, cov: &mut Coverage) -> Result<()> {
