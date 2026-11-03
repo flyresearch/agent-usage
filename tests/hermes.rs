@@ -11,6 +11,7 @@ fn config(path: &Path) -> Config {
         schema_version: 1,
         host_id: "fixture".into(),
         model_aliases: BTreeMap::from([("synthetic".into(), "test-model".into())]),
+        model_name_policy: None,
         sources: vec![Source {
             id: "hermes".into(),
             adapter: "hermes-sqlite".into(),
@@ -239,4 +240,26 @@ fn optional_api_call_counts_are_read_without_counting_aggregate_rows() {
     c.execute("UPDATE session_model_usage SET api_call_count=-1", [])
         .unwrap();
     assert!(collect(&config(&p), None).is_err());
+}
+#[test]
+fn automatic_model_preserves_unknown_residual() {
+    let d = tempfile::tempdir().unwrap();
+    let p = d.path().join("a.db");
+    let db = database(&p);
+    session(&db, 15);
+    usage(&db, None, 10, Some(1767225601.));
+    db.execute("UPDATE session_model_usage SET model='synthetic-1'", [])
+        .unwrap();
+    let mut c = config(&p);
+    c.model_aliases.clear();
+    c.model_name_policy = Some(ModelNamePolicy {
+        mode: "pattern".into(),
+        sources: BTreeMap::from([("hermes".into(), vec!["synthetic-".into()])]),
+    });
+    let s = collect(&c, None).unwrap();
+    assert!(s.rows.iter().any(|r| r.model == "synthetic-1"));
+    assert!(s
+        .rows
+        .iter()
+        .any(|r| r.model == "unknown" && r.usage_kind.as_deref() == Some("residual")));
 }

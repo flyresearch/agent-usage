@@ -111,9 +111,9 @@ fn claude_role(value: &Value) -> Option<String> {
         .and_then(Value::as_bool)
         .map(|sub| if sub { "subagent" } else { "main" }.into())
 }
-fn model(raw: Option<&str>, aliases: &BTreeMap<String, String>, cov: &mut Coverage) -> String {
+pub(crate) fn model(raw: Option<&str>, aliases: &ModelResolver<'_>, cov: &mut Coverage) -> String {
     match raw.and_then(|s| aliases.get(s)) {
-        Some(s) => s.clone(),
+        Some(s) => s.to_owned(),
         None => {
             cov.unknown_model_records += 1;
             "unknown".into()
@@ -202,6 +202,22 @@ pub fn parse(
     reader: impl BufRead,
     adapter: &str,
     aliases: &BTreeMap<String, String>,
+    file_key: &str,
+) -> Result<Parsed> {
+    parse_with_policy(
+        reader,
+        adapter,
+        &ModelResolver {
+            aliases,
+            prefixes: &[],
+        },
+        file_key,
+    )
+}
+pub fn parse_with_policy(
+    reader: impl BufRead,
+    adapter: &str,
+    aliases: &ModelResolver<'_>,
     file_key: &str,
 ) -> Result<Parsed> {
     if adapter == "workbuddy-jsonl" {

@@ -26,6 +26,7 @@ fn run(failed_source: &mut Option<String>) -> Result<Value, Error> {
             return Err(Error("invalid_argument"));
         }
         let config = read_config(&path)?;
+        config.validate_policy()?;
         if config.schema_version != 1 || !agent_usage::label(&config.host_id) {
             return Err(Error("invalid_config"));
         }
@@ -124,8 +125,11 @@ fn run(failed_source: &mut Option<String>) -> Result<Value, Error> {
     Ok(value)
 }
 fn read_config(path: &Path) -> Result<Config, Error> {
-    serde_json::from_reader(File::open(path).map_err(|_| Error("config_read_failed"))?)
-        .map_err(|_| Error("invalid_config"))
+    let config: Config =
+        serde_json::from_reader(File::open(path).map_err(|_| Error("config_read_failed"))?)
+            .map_err(|_| Error("invalid_config"))?;
+    config.validate_policy()?;
+    Ok(config)
 }
 
 fn ensure_config_unchanged(path: &Path, expected: &Config) -> Result<(), Error> {

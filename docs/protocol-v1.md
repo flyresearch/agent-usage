@@ -23,7 +23,7 @@ agent-usage collect --config PRIVATE_CONFIG --cache PRIVATE_CACHE
 }
 ```
 
-这只是占位示意，需在仓外私有配置中替换目录。adapter 当前只支持 `codex-jsonl` / `claude-jsonl`；其他值返回 `unsupported_adapter`。source ID 不得重复。host_id/source_id/模型输出标签限 1–64 位 ASCII 字母数字及 `._-`，操作者应使用不含个人信息的受控标签。model_aliases 的键不会导出；未列入映射的原始模型名归入 unknown，保留 token 并标记 coverage。配置应保留于来源机器，不能入库。
+这只是占位示意，需在仓外私有配置中替换目录。adapter 当前只支持 `codex-jsonl` / `claude-jsonl`；其他值返回 `unsupported_adapter`。source ID 不得重复。host_id/source_id/模型输出标签限 1–64 位 ASCII 字母数字及 `._-`，操作者应使用不含个人信息的受控标签。model_aliases 的键不会导出；默认未列入映射的原始模型名归入 unknown，保留 token 并标记 coverage。可按来源显式启用自动名称规则，细节及隐私风险见 [自动模型名称设计](automatic-model-names-design.md)。配置应保留于来源机器，不能入库。
 
 指纹是结构化配置的 SHA-256，包含来源路径、顺序和 model_aliases；只导出摘要，不导出路径。来源/映射变化使缓存失效。
 

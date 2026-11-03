@@ -17,6 +17,7 @@ fn config(p: &Path) -> Config {
             paths: vec![p.into()],
         }],
         model_aliases: BTreeMap::from([("synthetic".into(), "model-a".into())]),
+        model_name_policy: None,
     }
 }
 fn message(api: &str) -> Value {
@@ -307,4 +308,20 @@ fn zero_token_assistant_response_still_has_one_message() {
     let s = collect(&config(&p), None).unwrap();
     assert_eq!(s.totals.total().unwrap(), 0);
     assert_eq!(s.rows[0].messages, MessageCount::one());
+}
+#[test]
+fn automatic_model_name_respects_openclaw_attribution() {
+    let d = tempfile::tempdir().unwrap();
+    let p = d.path().join("a.db");
+    let conn = db(&p);
+    let mut m = message("openai-completions");
+    m["message"]["model"] = json!("synthetic-1");
+    add(&conn, 1, &m, false);
+    let mut c = config(&p);
+    c.model_aliases.clear();
+    c.model_name_policy = Some(ModelNamePolicy {
+        mode: "pattern".into(),
+        sources: BTreeMap::from([("openclaw".into(), vec!["synthetic-".into()])]),
+    });
+    assert_eq!(collect(&c, None).unwrap().rows[0].model, "synthetic-1");
 }

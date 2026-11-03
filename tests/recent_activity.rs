@@ -26,6 +26,7 @@ fn project(rows: &[Value], now: i64) -> RecentActivity {
             paths: vec![],
         }],
         model_aliases: BTreeMap::new(),
+        model_name_policy: None,
     };
     let status = SourceStatus {
         source_id: "source".into(),
@@ -92,6 +93,7 @@ fn warm_cache_reprojects_time_without_freezing_recent_usage() {
             paths: vec![root],
         }],
         model_aliases: [("fixture".into(), "fixture".into())].into(),
+        model_name_policy: None,
     };
     let cache = d.path().join("cache.json");
     let first = collect(&cfg, Some(&cache)).unwrap();

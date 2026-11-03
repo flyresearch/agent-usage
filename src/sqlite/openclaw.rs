@@ -71,6 +71,22 @@ pub fn parse_file(
     file_key: &str,
     backend_threads: &BTreeSet<String>,
 ) -> Result<(Parsed, u64)> {
+    parse_file_with_policy(
+        path,
+        &ModelResolver {
+            aliases,
+            prefixes: &[],
+        },
+        file_key,
+        backend_threads,
+    )
+}
+pub fn parse_file_with_policy(
+    path: &Path,
+    aliases: &ModelResolver<'_>,
+    file_key: &str,
+    backend_threads: &BTreeSet<String>,
+) -> Result<(Parsed, u64)> {
     let mut conn = open_readonly(path)?;
     let tx = conn
         .transaction()
@@ -195,10 +211,7 @@ pub fn parse_file(
                 hash(&serde_json::to_vec(&("openclaw-event", file_key, sid, seq)).unwrap())
             };
             let raw_model = m["model"].as_str().unwrap_or("");
-            let model = aliases.get(raw_model).cloned().unwrap_or_else(|| {
-                out.coverage.unknown_model_records += 1;
-                "unknown".into()
-            });
+            let model = crate::parser::model(Some(raw_model), aliases, &mut out.coverage);
             let record = Record {
                 messages: MessageCount::one(),
                 key: key.clone(),

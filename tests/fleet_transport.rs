@@ -37,6 +37,7 @@ fn actual_collector_invocation_returns_valid_snapshot_and_checks_identity() {
             paths: vec![logs],
         }],
         model_aliases: Default::default(),
+        model_name_policy: None,
     };
     let path = d.path().join("config.json");
     let bytes = serde_json::to_vec(&cfg).unwrap();

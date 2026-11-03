@@ -74,6 +74,7 @@ fn config(path: &Path) -> Config {
         schema_version: 1,
         host_id: "fixture".into(),
         model_aliases: aliases(),
+        model_name_policy: None,
         sources: vec![Source {
             id: "agy".into(),
             adapter: "agy-sqlite".into(),
@@ -363,4 +364,23 @@ fn invalid_source_preserves_existing_cache_and_does_not_publish_partial() {
     c.sources[0].paths.push(bad);
     assert!(collect(&c, Some(&cache)).is_err());
     assert_eq!(fs::read(cache).unwrap(), before);
+}
+#[test]
+fn automatic_model_name_uses_actual_sqlite_adapter() {
+    let d = tempfile::tempdir().unwrap();
+    let p = d.path().join("a.db");
+    let conn = database(&p);
+    let mut bytes = generation(Some("r"), Some(instant()));
+    let old = b"synthetic-model";
+    let new = b"synthetic-12345";
+    let i = bytes.windows(old.len()).position(|x| x == old).unwrap();
+    bytes[i..i + old.len()].copy_from_slice(new);
+    add(&conn, 0, bytes);
+    let mut c = config(&p);
+    c.model_aliases.clear();
+    c.model_name_policy = Some(ModelNamePolicy {
+        mode: "pattern".into(),
+        sources: BTreeMap::from([("agy".into(), vec!["synthetic-".into()])]),
+    });
+    assert_eq!(collect(&c, None).unwrap().rows[0].model, "synthetic-12345");
 }

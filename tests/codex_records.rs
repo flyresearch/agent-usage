@@ -266,6 +266,7 @@ fn copied_record_files_dedup_and_mixed_storage_fails_even_warm() {
         schema_version: 1,
         host_id: "fixture".into(),
         model_aliases: BTreeMap::new(),
+        model_name_policy: None,
         sources: vec![Source {
             id: "codex".into(),
             adapter: "codex-jsonl".into(),
@@ -467,6 +468,7 @@ fn parent_and_child_are_independent_and_warm_cache_keeps_coverage() {
         schema_version: 1,
         host_id: "fixture".into(),
         model_aliases: BTreeMap::from([("synthetic-model".into(), "test-model".into())]),
+        model_name_policy: None,
         sources: vec![Source {
             id: "codex".into(),
             adapter: "codex-jsonl".into(),
@@ -604,6 +606,7 @@ fn early_unmetered_transcript_is_not_claimed_as_zero_usage() {
         schema_version: 1,
         host_id: "fixture".into(),
         model_aliases: BTreeMap::new(),
+        model_name_policy: None,
         sources: vec![Source {
             id: "codex".into(),
             adapter: "codex-jsonl".into(),
@@ -639,4 +642,20 @@ fn duplicate_response_hour_conflict_is_unallocated_not_double_counted() {
     assert_eq!(p.records.len(), 1);
     assert_eq!(p.records[0].hour, None);
     assert_eq!(total(&p), 12);
+}
+#[test]
+fn automatic_compaction_model_still_requires_matching_response() {
+    let aliases = BTreeMap::new();
+    let prefixes = vec!["synthetic-".to_string()];
+    let resolver = ModelResolver {
+        aliases: &aliases,
+        prefixes: &prefixes,
+    };
+    for (id, expected) in [("compact", "synthetic-1"), ("other", "unknown")] {
+        let rows = [record("compact", 30, 5), compacted(id, "synthetic-1")];
+        let input = rows.iter().map(|v| format!("{v}\n")).collect::<String>();
+        let p = parser::parse_with_policy(input.as_bytes(), "codex-jsonl", &resolver, "fixture")
+            .unwrap();
+        assert_eq!(p.records[0].model, expected);
+    }
 }

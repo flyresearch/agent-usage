@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-pub const PARSER_VERSION: &str = "p2b-11";
+pub const PARSER_VERSION: &str = "p2b-12";
 pub type Result<T> = std::result::Result<T, Error>;
 
 // Static error codes only: never expose a serde/io error or source text.
@@ -37,6 +37,114 @@ pub struct Config {
     pub sources: Vec<Source>,
     #[serde(default)]
     pub model_aliases: BTreeMap<String, String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "policy_present"
+    )]
+    pub model_name_policy: Option<ModelNamePolicy>,
+}
+fn policy_present<'de, D: serde::Deserializer<'de>>(
+    d: D,
+) -> std::result::Result<Option<ModelNamePolicy>, D::Error> {
+    ModelNamePolicy::deserialize(d).map(Some)
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ModelNamePolicy {
+    pub mode: String,
+    #[serde(deserialize_with = "unique_sources")]
+    pub sources: BTreeMap<String, Vec<String>>,
+}
+fn unique_sources<'de, D: serde::Deserializer<'de>>(
+    d: D,
+) -> std::result::Result<BTreeMap<String, Vec<String>>, D::Error> {
+    use serde::de::{Error as _, MapAccess, Visitor};
+    struct V;
+    impl<'de> Visitor<'de> for V {
+        type Value = BTreeMap<String, Vec<String>>;
+        fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            f.write_str("unique sources")
+        }
+        fn visit_map<M: MapAccess<'de>>(
+            self,
+            mut m: M,
+        ) -> std::result::Result<Self::Value, M::Error> {
+            let mut out = BTreeMap::new();
+            while let Some((k, v)) = m.next_entry()? {
+                if out.insert(k, v).is_some() {
+                    return Err(M::Error::custom("duplicate source"));
+                }
+            }
+            Ok(out)
+        }
+    }
+    d.deserialize_map(V)
+}
+impl Config {
+    pub fn validate_policy(&self) -> Result<()> {
+        if let Some(p) = &self.model_name_policy {
+            if p.mode != "pattern" || p.sources.is_empty() || p.sources.len() > 64 {
+                return Err(Error("invalid_config"));
+            }
+            for (id, prefixes) in &p.sources {
+                if !self.sources.iter().any(|s| &s.id == id)
+                    || prefixes.is_empty()
+                    || prefixes.len() > 32
+                {
+                    return Err(Error("invalid_config"));
+                }
+                let mut seen = std::collections::BTreeSet::new();
+                for prefix in prefixes {
+                    let b = prefix.as_bytes();
+                    if b.is_empty()
+                        || b.len() > 48
+                        || !b[0].is_ascii_alphabetic()
+                        || b.last() != Some(&b'-')
+                        || !label(prefix)
+                        || !seen.insert(prefix)
+                    {
+                        return Err(Error("invalid_config"));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+    pub fn resolver<'a>(&'a self, source: &str) -> ModelResolver<'a> {
+        ModelResolver {
+            aliases: &self.model_aliases,
+            prefixes: self
+                .model_name_policy
+                .as_ref()
+                .and_then(|p| p.sources.get(source))
+                .map(Vec::as_slice)
+                .unwrap_or(&[]),
+        }
+    }
+}
+pub struct ModelResolver<'a> {
+    pub aliases: &'a BTreeMap<String, String>,
+    pub prefixes: &'a [String],
+}
+impl ModelResolver<'_> {
+    pub fn automatic(&self, s: &str) -> bool {
+        s != "unknown"
+            && label(s)
+            && self.prefixes.iter().any(|p| {
+                s.strip_prefix(p)
+                    .is_some_and(|tail| tail.as_bytes().first().is_some_and(u8::is_ascii_digit))
+            })
+    }
+    pub fn get<'a>(&'a self, raw: &'a str) -> Option<&'a str> {
+        self.aliases
+            .get(raw)
+            .map(String::as_str)
+            .or_else(|| self.automatic(raw).then_some(raw))
+    }
+    pub fn permits(&self, name: &str) -> bool {
+        name == "unknown" || self.aliases.values().any(|v| v == name) || self.automatic(name)
+    }
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

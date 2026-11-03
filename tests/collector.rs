@@ -31,6 +31,7 @@ fn config(root: &std::path::Path) -> Config {
             paths: vec![root.to_path_buf()],
         }],
         model_aliases: aliases(),
+        model_name_policy: None,
     }
 }
 fn write(path: &std::path::Path, v: &[Value]) {
@@ -662,7 +663,7 @@ fn parser_revision_invalidates_old_cache_layout() {
     let result = collect(&c, Some(&cache)).unwrap();
     assert_eq!(result.sources[0].cache_hits, 0);
     assert_eq!(result.totals.input, 10);
-    assert_eq!(result.parser_version, "p2b-11");
+    assert_eq!(result.parser_version, PARSER_VERSION);
 }
 
 #[test]
@@ -949,4 +950,21 @@ fn legacy_usage_is_not_a_message_count_and_old_rows_stay_unknown() {
     }
     .checked_add(MessageCount::one())
     .is_err());
+}
+#[test]
+fn claude_automatic_names_follow_source_policy() {
+    let t = tempfile::tempdir().unwrap();
+    let root = t.path().join("claude");
+    fs::create_dir(&root).unwrap();
+    let mut r = claude(5, T);
+    r["message"]["model"] = json!("claude-opus-6-1");
+    write(&root.join("a.jsonl"), &[r]);
+    let mut c = config(&root);
+    c.sources[0].adapter = "claude-jsonl".into();
+    c.model_aliases.clear();
+    c.model_name_policy = Some(ModelNamePolicy {
+        mode: "pattern".into(),
+        sources: BTreeMap::from([("primary".into(), vec!["claude-opus-".into()])]),
+    });
+    assert_eq!(collect(&c, None).unwrap().rows[0].model, "claude-opus-6-1");
 }

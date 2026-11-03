@@ -36,6 +36,7 @@ impl Fixture {
             schema_version: 1,
             host_id: "fixture".into(),
             model_aliases: std::collections::BTreeMap::new(),
+            model_name_policy: None,
             sources: vec![Source {
                 id: "codex".into(),
                 adapter: "codex-jsonl".into(),

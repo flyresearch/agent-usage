@@ -48,6 +48,20 @@ pub fn parse_file(
     aliases: &BTreeMap<String, String>,
     file_key: &str,
 ) -> Result<(Parsed, u64)> {
+    parse_file_with_policy(
+        path,
+        &ModelResolver {
+            aliases,
+            prefixes: &[],
+        },
+        file_key,
+    )
+}
+pub fn parse_file_with_policy(
+    path: &Path,
+    aliases: &ModelResolver<'_>,
+    file_key: &str,
+) -> Result<(Parsed, u64)> {
     let mut connection = open_readonly(path)?;
     let tx = connection
         .transaction_with_behavior(TransactionBehavior::Deferred)
@@ -191,13 +205,7 @@ pub fn parse_file(
             if day.is_none() {
                 out.coverage.missing_time_records += 1;
             }
-            let model = raw_model
-                .and_then(|m| aliases.get(m))
-                .cloned()
-                .unwrap_or_else(|| {
-                    out.coverage.unknown_model_records += 1;
-                    "unknown".into()
-                });
+            let model = crate::parser::model(raw_model, aliases, &mut out.coverage);
             let key = if let Some(id) = response {
                 hash(&serde_json::to_vec(&("agy-response", id)).unwrap())
             } else {

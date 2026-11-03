@@ -4,9 +4,11 @@ Start with AGENTS.md, then [setup](minimal-usage.md), [validation](minimal-valid
 
 ## Current baseline
 
-Package 0.1.0 is experimental; parser version p2b-9, snapshot schema v1, and app-owned fleet store schema 2. The implemented surface includes Codex/Claude/WorkBuddy JSONL and agy/Hermes/OpenClaw SQLite collection, local/SSH fleet orchestration, atomic last-good aggregation, and a separate native macOS UI fork. Source directories and host configurations are explicit.
+Package 0.1.0 is experimental; source parser version p2b-12, snapshot schema v1, and app-owned fleet store schema 2. The implemented surface includes Codex/Claude/WorkBuddy JSONL and agy/Hermes/OpenClaw SQLite collection, local/SSH fleet orchestration, atomic last-good aggregation, and a separate native macOS UI fork. Source directories and host configurations are explicit.
 
 Tests use synthetic data and exercise the actual implementation. Native qualification covers macOS arm64/x86_64 and Windows x86_64 GNU collectors; the native UI is a macOS application. Hosted Windows MSVC CI has not been executed for these unpushed changes. A fresh checkout has no private config, cache, snapshot, model mapping, or ready-to-run source directories; follow the setup guide.
+
+Source p2b-12 adds opt-in, source-scoped automatic model names. Deployment state is private and must be verified from the current fleet report. The updated UI configuration editor preserves the new policy field; older builds reject it. See [automatic model names](automatic-model-names-design.md).
 
 The active macOS app adapts the original Syrtis target, with Agent Usage branding, machine/Agent filters, daily/model views, metered response/API-call counts and versioned offline price estimates. Computer Use verified filtering and metric consistency. The latest branding build compiles and starts; its updated popover appearance has not yet been rechecked. Shared Swift core checks total 23 and original-target projection checks total 9.
 

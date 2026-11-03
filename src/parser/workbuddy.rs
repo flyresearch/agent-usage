@@ -12,10 +12,7 @@ fn detail(u: &Value, field: &str, key: &str, cov: &mut Coverage) -> Result<u64> 
     })
 }
 
-pub(super) fn parse(
-    mut reader: impl BufRead,
-    aliases: &BTreeMap<String, String>,
-) -> Result<Parsed> {
+pub(super) fn parse(mut reader: impl BufRead, aliases: &ModelResolver<'_>) -> Result<Parsed> {
     let mut out = Parsed::default();
     let mut bytes = Vec::new();
     let mut seen = BTreeMap::new();

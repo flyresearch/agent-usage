@@ -105,17 +105,23 @@ fn interval(
     };
     Ok((day, bounds, basis.into()))
 }
-fn model(raw: Option<&str>, aliases: &BTreeMap<String, String>, cov: &mut Coverage) -> String {
-    raw.and_then(|s| aliases.get(s))
-        .cloned()
-        .unwrap_or_else(|| {
-            cov.unknown_model_records += 1;
-            "unknown".into()
-        })
-}
 pub fn parse_file(
     path: &Path,
     aliases: &BTreeMap<String, String>,
+    file_key: &str,
+) -> Result<(Parsed, u64)> {
+    parse_file_with_policy(
+        path,
+        &ModelResolver {
+            aliases,
+            prefixes: &[],
+        },
+        file_key,
+    )
+}
+pub fn parse_file_with_policy(
+    path: &Path,
+    aliases: &ModelResolver<'_>,
     file_key: &str,
 ) -> Result<(Parsed, u64)> {
     let mut conn = open_readonly(path)?;
@@ -187,7 +193,7 @@ pub fn parse_file(
                 execution_role: None,
                 messages,
                 key: hash(&serde_json::to_vec(&("hermes-model", file_key, sid, ordinal)).unwrap()),
-                model: model(raw_model.as_deref(), aliases, &mut out.coverage),
+                model: crate::parser::model(raw_model.as_deref(), aliases, &mut out.coverage),
                 model_key: hash(raw_model.as_deref().unwrap_or("").as_bytes()),
                 message_key: None,
                 request_present: false,
@@ -243,7 +249,7 @@ pub fn parse_file(
                 execution_role: None,
                 messages: MessageCount::default(),
                 key: hash(&serde_json::to_vec(&("hermes-residual", file_key, id)).unwrap()),
-                model: model(None, aliases, &mut out.coverage),
+                model: crate::parser::model(None, aliases, &mut out.coverage),
                 model_key: hash(b""),
                 message_key: None,
                 request_present: false,

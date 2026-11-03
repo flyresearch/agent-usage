@@ -19,6 +19,7 @@ fn setup(root: &Path, id: &str) -> (HostConfig, PathBuf) {
             paths: vec![logs.clone()],
         }],
         model_aliases: Default::default(),
+        model_name_policy: None,
     };
     let bytes = serde_json::to_vec(&cfg).unwrap();
     let path = dir.join("config.json");

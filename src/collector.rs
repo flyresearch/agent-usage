@@ -52,6 +52,7 @@ struct Cache {
 }
 
 fn validate(config: &Config, active_source: &mut Option<String>) -> Result<Vec<(usize, PathBuf)>> {
+    config.validate_policy()?;
     if config.schema_version != 1 {
         return Err(Error("unsupported_config_version"));
     }
@@ -280,6 +281,7 @@ fn collect_inner(
         vec![BTreeMap::new(); config.sources.len()];
     for (i, path) in paths {
         *active_source = Some(config.sources[i].id.clone());
+        let resolver = config.resolver(&config.sources[i].id);
         let key = hash(path.as_os_str().as_encoded_bytes());
         let before = stamp(&path)?;
         let status = &mut statuses[i];
@@ -289,13 +291,13 @@ fn collect_inner(
             // Always query a readonly transaction: the main file's metadata
             // cannot represent committed WAL updates.
             let (parsed, bytes) = match config.sources[i].adapter.as_str() {
-                "agy-sqlite" => crate::sqlite::agy::parse_file(&path, &config.model_aliases, &key)?,
+                "agy-sqlite" => crate::sqlite::agy::parse_file_with_policy(&path, &resolver, &key)?,
                 "hermes-sqlite" => {
-                    crate::sqlite::hermes::parse_file(&path, &config.model_aliases, &key)?
+                    crate::sqlite::hermes::parse_file_with_policy(&path, &resolver, &key)?
                 }
-                "openclaw-sqlite" => crate::sqlite::openclaw::parse_file(
+                "openclaw-sqlite" => crate::sqlite::openclaw::parse_file_with_policy(
                     &path,
-                    &config.model_aliases,
+                    &resolver,
                     &key,
                     &backend_threads,
                 )?,
@@ -311,19 +313,28 @@ fn collect_inner(
             let f = File::open(&path).map_err(|_| Error("source_unreadable"))?;
             // Limit to size observed at scan start. A concurrent append is left
             // for the next scan; mutation during reading is retried as a failure.
-            let result = parser::parse(
+            let result = parser::parse_with_policy(
                 BufReader::new(f.take(before.len)),
                 if config.sources[i].adapter == "openclaw-codex-jsonl" {
                     "codex-jsonl"
                 } else {
                     &config.sources[i].adapter
                 },
-                &config.model_aliases,
+                &resolver,
                 &key,
             )?;
             status.bytes_read += before.len;
             result
         };
+        for record in &parsed.records {
+            if !resolver.permits(&record.model)
+                || (record.model != "unknown"
+                    && !resolver.aliases.values().any(|v| v == &record.model)
+                    && record.model_key != hash(record.model.as_bytes()))
+            {
+                return Err(Error("invalid_cache_projection"));
+            }
+        }
         if !database && stamp(&path)? != before {
             return Err(Error("source_changed_during_scan"));
         }
@@ -585,13 +596,11 @@ fn collect_inner(
     };
     // Cached projections pass the same outbound contract as freshly parsed
     // records. Never publish arbitrary cached text as a model/date/backend.
-    if snapshot.rows.iter().any(|row| {
-        row.model != "unknown"
-            && !config
-                .model_aliases
-                .values()
-                .any(|model| model == &row.model)
-    }) {
+    if snapshot
+        .rows
+        .iter()
+        .any(|row| !config.resolver(&row.source_id).permits(&row.model))
+    {
         return Err(Error("invalid_cache_projection"));
     }
     crate::output::summary(&snapshot)?;

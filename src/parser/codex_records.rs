@@ -13,7 +13,7 @@ pub(super) struct Context<'a> {
     pub thread: Option<&'a str>,
     pub turn: Option<&'a str>,
     pub model: Option<&'a str>,
-    pub aliases: &'a BTreeMap<String, String>,
+    pub aliases: &'a ModelResolver<'a>,
 }
 #[derive(Default)]
 pub(super) struct ResponseUsage {
@@ -26,19 +26,14 @@ pub(super) struct ResponseUsage {
     // Compaction record awaiting the turn context Codex re-emits for its turn.
     pending: Option<(usize, String)>,
 }
-fn attribute(
-    r: &mut Record,
-    raw: Option<&str>,
-    aliases: &BTreeMap<String, String>,
-    cov: &mut Coverage,
-) {
+fn attribute(r: &mut Record, raw: Option<&str>, aliases: &ModelResolver<'_>, cov: &mut Coverage) {
     let was_unknown = r.model == "unknown";
     match raw.and_then(|m| aliases.get(m)) {
         Some(label) => {
             if was_unknown {
                 cov.unknown_model_records = cov.unknown_model_records.saturating_sub(1);
             }
-            r.model = label.clone();
+            r.model = label.to_owned();
             r.model_key = hash(raw.unwrap_or("").as_bytes());
         }
         None => {
@@ -57,7 +52,7 @@ impl ResponseUsage {
     pub fn compacted(
         &mut self,
         p: &Value,
-        aliases: &BTreeMap<String, String>,
+        aliases: &ModelResolver<'_>,
         records: &mut [Record],
         cov: &mut Coverage,
     ) {
@@ -90,7 +85,7 @@ impl ResponseUsage {
         &mut self,
         turn: Option<&str>,
         raw: Option<&str>,
-        aliases: &BTreeMap<String, String>,
+        aliases: &ModelResolver<'_>,
         records: &mut [Record],
         cov: &mut Coverage,
     ) {

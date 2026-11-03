@@ -22,6 +22,7 @@ fn config(root: &std::path::Path) -> Config {
         schema_version: 1,
         host_id: "fixture-host".into(),
         model_aliases: aliases(),
+        model_name_policy: None,
         sources: vec![Source {
             id: "wb".into(),
             adapter: "workbuddy-jsonl".into(),
@@ -413,4 +414,20 @@ fn missing_write_evidence_rejects_refresh_and_preserves_snapshot_and_cache() {
         assert_eq!(fs::read(&out).unwrap(), saved);
         assert_eq!(fs::read(&cache).unwrap(), saved_cache);
     }
+}
+#[test]
+fn automatic_model_name_uses_actual_workbuddy_parser() {
+    let t = tempfile::tempdir().unwrap();
+    let root = t.path().join("source");
+    fs::create_dir(&root).unwrap();
+    let mut r = row("one");
+    r["providerData"]["model"] = json!("fixture-1");
+    write(&root.join("one.jsonl"), &[r]);
+    let mut c = config(&root);
+    c.model_aliases.clear();
+    c.model_name_policy = Some(ModelNamePolicy {
+        mode: "pattern".into(),
+        sources: BTreeMap::from([("wb".into(), vec!["fixture-".into()])]),
+    });
+    assert_eq!(collect(&c, None).unwrap().rows[0].model, "fixture-1");
 }

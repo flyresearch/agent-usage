@@ -79,6 +79,7 @@ fn collector_buckets_by_hour_and_role_without_changing_daily_sum_or_cache() {
         schema_version: 1,
         host_id: "fixture".into(),
         model_aliases: aliases(),
+        model_name_policy: None,
         sources: vec![Source {
             id: "main".into(),
             adapter: "claude-jsonl".into(),
@@ -118,6 +119,7 @@ fn legacy_snapshot_without_dimensions_remains_readable() {
         schema_version: 1,
         host_id: "fixture".into(),
         model_aliases: aliases(),
+        model_name_policy: None,
         sources: vec![Source {
             id: "main".into(),
             adapter: "claude-jsonl".into(),
