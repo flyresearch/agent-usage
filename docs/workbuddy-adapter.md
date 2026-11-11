@@ -16,6 +16,7 @@ Nested subagent JSONL files use the same parser. Models require explicit private
 
 ## Supported accounting
 
+- Title-only metadata records, including `custom-title`, do not count as calls.
 - `message` and `function_call` records may carry usage; tool results and metadata
   without usage do not count. A `message.usage` mirror is never added again.
 - Assistant messages (including unknown-role messages) and function calls without
@@ -35,6 +36,10 @@ Nested subagent JSONL files use the same parser. Models require explicit private
   normalized usage. Legacy `cache_read_input_tokens` and
   `completion_thinking_tokens` are not authoritative aliases: observed records
   can report zero there while the normalized details contain nonzero values.
+- Older assistant messages containing only `input_tokens`, `output_tokens`, and
+  `total_tokens` without raw usage or a provider message ID are validated but
+  excluded from token totals: their cache breakdown and call identity are unknown.
+  They count as unclassified usage, so coverage remains partial.
 - Nonzero `cache_creation_input_tokens` or `prompt_cache_write_tokens` fail with
   `unsupported_cache_write`; positive-write semantics are not yet qualified.
   Missing write fields also fail with `unsupported_cache_write`; unknown write

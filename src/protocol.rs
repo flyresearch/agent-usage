@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-pub const PARSER_VERSION: &str = "p2b-12";
+pub const PARSER_VERSION: &str = "p2b-13";
 pub type Result<T> = std::result::Result<T, Error>;
 
 // Static error codes only: never expose a serde/io error or source text.

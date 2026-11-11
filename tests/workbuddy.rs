@@ -236,6 +236,51 @@ fn missing_detail_and_trace_file_are_not_zero_usage() {
 }
 
 #[test]
+fn legacy_aggregate_is_unclassified_and_never_added_to_known_usage() {
+    let legacy = json!({"type":"message","role":"assistant","providerData":{
+        "model":"fixture-model","usage":{"input_tokens":1000,"output_tokens":20,"total_tokens":1020}
+    }});
+    let p = parse(&[legacy.clone(), row("known")]).unwrap();
+    assert_eq!(p.records.len(), 1);
+    assert_eq!(p.records[0].tokens.total().unwrap(), 130);
+    assert_eq!(p.coverage.unclassified_usage_records, 1);
+    let p = parse(std::slice::from_ref(&legacy)).unwrap();
+    assert_eq!(p.coverage.unmetered_files, 1);
+    let mut invalid = legacy.clone();
+    invalid["providerData"]["usage"]["total_tokens"] = json!(1);
+    assert_eq!(parse(&[invalid]).unwrap_err().0, "invalid_reported_total");
+    let mut invalid = legacy;
+    invalid["providerData"]["usage"]["input_tokens"] = json!(-1);
+    assert_eq!(parse(&[invalid]).unwrap_err().0, "invalid_token_field");
+}
+
+#[test]
+fn legacy_aggregate_remains_partial_on_cold_and_warm_collection() {
+    let t = tempfile::tempdir().unwrap();
+    let root = t.path().join("projects");
+    fs::create_dir(&root).unwrap();
+    write(
+        &root.join("session.jsonl"),
+        &[
+            row("known"),
+            json!({"type":"message","role":"assistant","providerData":{
+                "usage":{"input_tokens":1000,"output_tokens":20,"total_tokens":1020}
+            }}),
+        ],
+    );
+    let cache = t.path().join("cache.json");
+    for warm in [false, true] {
+        let snapshot = collect(&config(&root), Some(&cache)).unwrap();
+        assert_eq!(snapshot.totals.total().unwrap(), 130);
+        assert!(!snapshot.coverage_complete);
+        assert_eq!(snapshot.sources[0].coverage.unclassified_usage_records, 1);
+        if warm {
+            assert_eq!(snapshot.sources[0].cache_hits, 1);
+        }
+    }
+}
+
+#[test]
 fn cli_report_and_failed_refresh_preserve_last_good() {
     use std::process::Command;
     let t = tempfile::tempdir().unwrap();
@@ -320,6 +365,7 @@ fn nonassistant_records_do_not_create_unmetered_gaps() {
         json!({"type":"message","role":"user"}),
         json!({"type":"message","role":"system"}),
         json!({"type":"function_call_result"}),
+        json!({"type":"custom-title","customTitle":"PRIVATE-FIXTURE"}),
     ])
     .unwrap();
     assert!(p.records.is_empty());

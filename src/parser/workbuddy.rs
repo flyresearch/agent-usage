@@ -53,6 +53,7 @@ pub(super) fn parse(mut reader: impl BufRead, aliases: &ModelResolver<'_>) -> Re
                     | "file-history-snapshot"
                     | "session-meta"
                     | "ai-title"
+                    | "custom-title"
             ) {
                 return Err(Error("unsupported_record_shape"));
             }
@@ -79,6 +80,31 @@ pub(super) fn parse(mut reader: impl BufRead, aliases: &ModelResolver<'_>) -> Re
             return Err(Error("unsupported_usage_record"));
         }
         out.coverage.usage_records += 1;
+        // Some older assistant messages contain only aggregate snake-case
+        // counters. Their cache breakdown and call identity are unknown, so
+        // validate the observed shape but do not invent billable buckets.
+        if kind == "message"
+            && v["role"] == "assistant"
+            && u.as_object().is_some_and(|m| {
+                m.len() == 3
+                    && ["input_tokens", "output_tokens", "total_tokens"]
+                        .iter()
+                        .all(|key| m.contains_key(*key))
+            })
+            && pd.get("rawUsage").is_none()
+            && pd.get("messageId").is_none()
+        {
+            let input = number(u, "input_tokens", true)?;
+            let output = number(u, "output_tokens", true)?;
+            let total = input.checked_add(output).ok_or(Error("token_overflow"))?;
+            if number(u, "total_tokens", true)? != total {
+                return Err(Error("invalid_reported_total"));
+            }
+            anonymous_unmetered = anonymous_unmetered
+                .checked_add(1)
+                .ok_or(Error("token_overflow"))?;
+            continue;
+        }
         unknown_fields(
             u,
             &[
